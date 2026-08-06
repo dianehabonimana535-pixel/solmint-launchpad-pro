@@ -1,0 +1,276 @@
+import { PublicKey, Connection, Transaction, SystemProgram } from "@solana/web3.js";
+import type { WalletContextState } from "@solana/wallet-adapter-react";
+import {
+  AuthorityType,
+  createSetAuthorityInstruction,
+} from "@solana/spl-token";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import {
+  mplTokenMetadata,
+  createV1,
+  mintV1,
+  updateV1,
+  TokenStandard,
+} from "@metaplex-foundation/mpl-token-metadata";
+import {
+  generateSigner,
+  percentAmount,
+  publicKey as toUmiPublicKey,
+  sol,
+  transactionBuilder,
+} from "@metaplex-foundation/umi";
+import { mplToolbox, transferSol } from "@metaplex-foundation/mpl-toolbox";
+import bs58 from "bs58";
+import { RPC_ENDPOINT, PLATFORM_FEE_WALLET } from "./network";
+import { PLATFORM_CREATION_FEE_SOL, PLATFORM_REVOKE_FEE_SOL } from "./fees";
+
+export interface CreateTokenParams {
+  wallet: WalletContextState;
+  connection: Connection;
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: number;
+  metadataUri: string;
+  recipient: string; // wallet that receives the minted supply
+  revokeMint: boolean;
+  revokeFreeze: boolean;
+  revokeUpdate: boolean;
+  creatorAddress?: string; // optional custom creator address in on-chain metadata
+  onStep?: (step: MintStep) => void;
+}
+
+export type MintStep =
+  | "building"
+  | "creating-mint"
+  | "minting-supply"
+  | "revoking-authorities"
+  | "confirming"
+  | "complete";
+
+export interface CreateTokenResult {
+  mintAddress: string;
+  signature: string;
+}
+
+/**
+ * Creates a new SPL token, attaches Metaplex metadata, mints the full
+ * supply to the recipient wallet, and optionally revokes mint / freeze /
+ * update authorities — all in a small number of wallet-signed transactions.
+ *
+ * Every instruction here is signed locally by the connected wallet
+ * (Phantom, Solflare, Backpack, Glow...). This app never sees, requests,
+ * or stores a seed phrase or private key. It does insert platform-fee
+ * transfer instructions (creation fee + per-authority revoke fee) to
+ * PLATFORM_FEE_WALLET, always shown to the user before they sign.
+ */
+export async function createToken(params: CreateTokenParams): Promise<CreateTokenResult> {
+  const {
+    wallet,
+    connection,
+    name,
+    symbol,
+    decimals,
+    supply,
+    metadataUri,
+    recipient,
+    revokeMint,
+    revokeFreeze,
+    revokeUpdate,
+    creatorAddress,
+    onStep,
+  } = params;
+
+  if (!wallet.publicKey || !wallet.signAllTransactions) {
+    throw new Error("Wallet not connected");
+  }
+
+  const recipientPubkey = new PublicKey(recipient);
+
+  const umi = createUmi(RPC_ENDPOINT)
+    .use(walletAdapterIdentity(wallet))
+    .use(mplTokenMetadata())
+    .use(mplToolbox());
+
+  const mintSigner = generateSigner(umi);
+  const authority = umi.identity; // the connected wallet acts as mint/freeze/update authority
+
+  // Creator shown in on-chain metadata. Defaults to the connected wallet
+  // (which signs this transaction, so it can be marked verified). A custom
+  // address can be supplied instead, but it can't be marked verified since
+  // it hasn't signed anything — that's normal Metaplex behavior, not a bug.
+  const creatorPubkey = creatorAddress
+    ? toUmiPublicKey(creatorAddress)
+    : authority.publicKey;
+  const creatorVerified = !creatorAddress;
+
+  onStep?.("building");
+
+  // 1) Create the mint account + initialize it + create on-chain metadata,
+  //    then mint the full initial supply straight to the recipient's ATA.
+  let builder = transactionBuilder()
+    .add(
+      createV1(umi, {
+        mint: mintSigner,
+        authority,
+        name,
+        symbol,
+        uri: metadataUri,
+        sellerFeeBasisPoints: percentAmount(0, 2),
+        decimals,
+        tokenStandard: TokenStandard.Fungible,
+        creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
+      })
+    )
+    .add(
+      mintV1(umi, {
+        mint: mintSigner.publicKey,
+        authority,
+        amount: BigInt(Math.round(supply * 10 ** decimals)),
+        tokenOwner: toUmiPublicKey(recipientPubkey.toBase58()),
+        tokenStandard: TokenStandard.Fungible,
+      })
+    )
+    .add(
+      transferSol(umi, {
+        source: authority,
+        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+        amount: sol(PLATFORM_CREATION_FEE_SOL),
+      })
+    );
+
+  onStep?.("creating-mint");
+  const { signature: createSig } = await builder.sendAndConfirm(umi, {
+    confirm: { commitment: "finalized" },
+  });
+
+  onStep?.("minting-supply");
+
+  const mintAddress = mintSigner.publicKey.toString();
+  const mintPubkeyWeb3 = new PublicKey(mintAddress);
+
+  // 2) Optionally revoke authorities. Mint/freeze go through a single
+  //    web3.js transaction; update authority goes through Umi's updateV1
+  //    because it also needs to rewrite the metadata account's authority.
+  const revokeAny = revokeMint || revokeFreeze || revokeUpdate;
+  let finalSig = bs58EncodeSignature(createSig);
+
+  if (revokeAny) {
+    onStep?.("revoking-authorities");
+
+    // --- Mint / Freeze authority revocation (SPL Token program) ---
+    const revokeIxs = [];
+
+    if (revokeMint) {
+      revokeIxs.push(
+        createSetAuthorityInstruction(
+          mintPubkeyWeb3,
+          wallet.publicKey,
+          AuthorityType.MintTokens,
+          null
+        )
+      );
+    }
+
+    if (revokeFreeze) {
+      revokeIxs.push(
+        createSetAuthorityInstruction(
+          mintPubkeyWeb3,
+          wallet.publicKey,
+          AuthorityType.FreezeAccount,
+          null
+        )
+      );
+    }
+
+    if (revokeIxs.length > 0) {
+      // 0.05 SOL platform fee per authority revoked in this transaction
+      // (mint and/or freeze — update authority is billed separately below).
+      revokeIxs.push(
+        SystemProgram.transfer({
+          fromPubkey: wallet.publicKey,
+          toPubkey: new PublicKey(PLATFORM_FEE_WALLET),
+          lamports: Math.round(revokeIxs.length * PLATFORM_REVOKE_FEE_SOL * 1_000_000_000),
+        })
+      );
+
+      const tx = new Transaction().add(...revokeIxs);
+      tx.feePayer = wallet.publicKey;
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      tx.recentBlockhash = blockhash;
+
+      const signedTx = await wallet.signTransaction!(tx);
+      const revokeSig = await connection.sendRawTransaction(signedTx.serialize());
+      await connection.confirmTransaction(
+        { signature: revokeSig, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+      finalSig = revokeSig;
+    }
+
+    // --- Update authority revocation (Token Metadata program) ---
+    if (revokeUpdate) {
+      // We deliberately do NOT re-fetch the metadata account here.
+      // Public RPC endpoints are often load-balanced across nodes with
+      // slightly different indexing lag, so reading the account back
+      // immediately after createV1's confirmation can spuriously fail
+      // with "account not found" — or, in this instruction's case,
+      // "Incorrect account owner" during simulation, for the same
+      // underlying reason. We already know exactly what we wrote, so we
+      // just resend it, with a short retry loop to absorb that lag.
+      const revokeBuilder = transactionBuilder().add(
+        updateV1(umi, {
+          mint: mintSigner.publicKey,
+          authority,
+          data: {
+            name,
+            symbol,
+            uri: metadataUri,
+            sellerFeeBasisPoints: 0,
+            creators: [
+              { address: creatorPubkey, verified: creatorVerified, share: 100 },
+            ],
+          },
+          newUpdateAuthority: toUmiPublicKey(SystemProgram.programId.toBase58()),
+          isMutable: false,
+        })
+      ).add(
+        transferSol(umi, {
+          source: authority,
+          destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+          amount: sol(PLATFORM_REVOKE_FEE_SOL),
+        })
+      );
+
+      let updSig: Uint8Array | undefined;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 2000 * attempt));
+          }
+          const result = await revokeBuilder.sendAndConfirm(umi, {
+            confirm: { commitment: "confirmed" },
+          });
+          updSig = result.signature;
+          lastErr = undefined;
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (lastErr) throw lastErr;
+      finalSig = bs58EncodeSignature(updSig!);
+    }
+  }
+
+  onStep?.("confirming");
+  onStep?.("complete");
+
+  return { mintAddress, signature: finalSig };
+}
+
+function bs58EncodeSignature(sig: Uint8Array): string {
+  return bs58.encode(sig);
+}
