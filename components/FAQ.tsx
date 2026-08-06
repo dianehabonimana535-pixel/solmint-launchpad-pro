@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SOLANA_NETWORK } from "@/lib/network";
+import { PLATFORM_CREATION_FEE_SOL, PLATFORM_REVOKE_FEE_SOL } from "@/lib/fees";
 
 const faqs = [
   {
     q: "Does SolMint Launchpad charge a fee?",
-    a: "No. There is no service fee, commission, tax, or hidden charge of any kind. You only pay the Solana network's own transaction fees and the one-time rent-exemption deposit for the accounts your token needs — the same cost anyone pays interacting with Solana directly.",
+    a: `Yes. A flat ${PLATFORM_CREATION_FEE_SOL} SOL platform fee is charged once when you create a token, plus ${PLATFORM_REVOKE_FEE_SOL} SOL for each authority you choose to revoke. On top of that you pay the Solana network's own transaction fees and the one-time rent-exemption deposit for the accounts your token needs. The exact total is always shown before you sign.`,
   },
   {
     q: "Do you ever ask for my seed phrase or private key?",
@@ -27,7 +29,7 @@ const faqs = [
   },
   {
     q: "Which network does this run on?",
-    a: "Solana mainnet-beta. Tokens you create here are real, live SPL tokens immediately tradable by anyone holding SOL.",
+    a: `Solana ${SOLANA_NETWORK}. ${SOLANA_NETWORK === "devnet" ? "This deployment is currently running on devnet for testing — tokens use free devnet SOL and are not real assets." : "Tokens you create here are real, live SPL tokens immediately tradable by anyone holding SOL."}`,
   },
   {
     q: "Can I undo a revoked authority?",
