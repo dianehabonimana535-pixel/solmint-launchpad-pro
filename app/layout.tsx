@@ -18,13 +18,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SolMint Launchpad — Create SPL Meme Coins on Solana, Zero Fees",
+  title: "SolMint Launchpad — Create SPL Meme Coins on Solana",
   description:
-    "Mint your own SPL meme coin on Solana mainnet in minutes. No code, no platform fees — you only ever pay the Solana network directly.",
+    "Mint your own SPL meme coin on Solana in minutes. No code required — flat 0.2 SOL platform fee, plus Solana's own network costs.",
   metadataBase: new URL("https://solmint.app"),
   openGraph: {
     title: "SolMint Launchpad",
-    description: "Create SPL meme coins on Solana mainnet. Zero platform fees, ever.",
+    description: "Create SPL meme coins on Solana. Flat, transparent platform fee.",
     type: "website",
   },
 };
