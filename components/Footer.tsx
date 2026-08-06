@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Coins } from "lucide-react";
+import { SOLANA_NETWORK } from "@/lib/network";
 
 export default function Footer() {
   return (
@@ -10,8 +11,8 @@ export default function Footer() {
           SolMint Launchpad
         </div>
         <p className="text-center text-xs text-muted-foreground sm:text-left">
-          Non-custodial. Zero platform fees. Built for Solana mainnet. Not financial advice —
-          creating a token carries risk; do your own research.
+          Non-custodial. Flat 0.2 SOL platform fee. Built for Solana {SOLANA_NETWORK}. Not
+          financial advice — creating a token carries risk; do your own research.
         </p>
         <div className="flex gap-4 text-xs text-muted-foreground">
           <Link href="/create" className="hover:text-foreground">Create</Link>
