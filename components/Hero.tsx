@@ -4,11 +4,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Zap, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SOLANA_NETWORK } from "@/lib/network";
 
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Space-themed background: pure CSS, no image file needed */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(120,80,255,0.25),transparent)]" />
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_30%,rgba(80,220,180,0.12),transparent_40%)]" />
 
@@ -20,7 +20,7 @@ export default function Hero() {
           className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-xs backdrop-blur"
         >
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-          Live on Solana Mainnet · No platform fee, ever
+          Live on Solana · Flat 0.2 SOL platform fee
         </motion.div>
 
         <motion.h1
@@ -41,8 +41,8 @@ export default function Hero() {
           className="max-w-xl text-balance text-base text-muted-foreground sm:text-lg"
         >
           Create and deploy your Solana meme coin effortlessly in seconds — logo, metadata,
-          and authorities included. Every lamport you spend goes to the Solana network,
-          never to us.
+          and authorities included. One flat 0.2 SOL platform fee, plus whatever Solana
+          itself charges.
         </motion.p>
 
         <motion.div
@@ -65,9 +65,9 @@ export default function Hero() {
           className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3"
         >
           {[
-            { icon: Ban, label: "Zero platform fees", desc: "Only Solana network costs" },
+            { icon: Ban, label: "One flat fee", desc: "0.2 SOL, no hidden costs" },
             { icon: ShieldCheck, label: "Non-custodial", desc: "We never see your keys" },
-            { icon: Zap, label: "Mints in seconds", desc: "Mainnet, no queue" },
+            { icon: Zap, label: "Mints in seconds", desc: `${SOLANA_NETWORK}, no queue` },
           ].map((f) => (
             <div key={f.label} className="glass flex flex-col items-center gap-1.5 rounded-xl px-4 py-5">
               <f.icon className="h-5 w-5 text-accent" />
