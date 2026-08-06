@@ -1,12 +1,7 @@
 import { Connection, clusterApiUrl } from "@solana/web3.js";
 
-/**
- * Mainnet-beta only. The RPC endpoint can be overridden with a private/paid
- * RPC provider (Helius, QuickNode, Triton, etc) via NEXT_PUBLIC_SOLANA_RPC_URL.
- * The public clusterApiUrl endpoint is rate-limited and NOT recommended for
- * production traffic.
- */
-export const SOLANA_NETWORK = "mainnet-beta" as const;
+export const SOLANA_NETWORK =
+  process.env.NEXT_PUBLIC_SOLANA_NETWORK === "devnet" ? "devnet" : "mainnet-beta";
 
 export const RPC_ENDPOINT =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL && process.env.NEXT_PUBLIC_SOLANA_RPC_URL.length > 0
@@ -17,18 +12,16 @@ export function getConnection(): Connection {
   return new Connection(RPC_ENDPOINT, "confirmed");
 }
 
+const EXPLORER_CLUSTER_SUFFIX = SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+
 export function explorerAddressUrl(address: string): string {
-  return `https://explorer.solana.com/address/${address}`;
+  return `https://explorer.solana.com/address/${address}${EXPLORER_CLUSTER_SUFFIX}`;
 }
 
 export function explorerTxUrl(signature: string): string {
-  return `https://explorer.solana.com/tx/${signature}`;
+  return `https://explorer.solana.com/tx/${signature}${EXPLORER_CLUSTER_SUFFIX}`;
 }
 
-/**
- * Platform fee wallet. Receives the creation fee and revoke-authority fees.
- * Override via NEXT_PUBLIC_PLATFORM_FEE_WALLET if this address ever changes.
- */
 export const PLATFORM_FEE_WALLET =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET &&
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET.length > 0
