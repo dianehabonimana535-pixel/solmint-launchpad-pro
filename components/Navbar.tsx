@@ -68,16 +68,16 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-lg">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-display text-lg font-bold">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg animated-gradient">
-            <Coins className="h-4 w-4 text-white" />
+      <div className="container flex h-14 items-center justify-between">
+        <Link href="/" className="flex items-center gap-1.5 font-display text-sm font-bold">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md animated-gradient">
+            <Coins className="h-3 w-3 text-white" />
           </span>
           SolMint
           <span className="gradient-text">Launchpad</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-0.5 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -85,17 +85,17 @@ export default function Navbar() {
               target={link.external ? "_blank" : undefined}
               rel={link.external ? "noopener noreferrer" : undefined}
               className={cn(
-                "rounded-lg px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+                "rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
                 pathname === link.href && "bg-secondary text-foreground"
               )}
             >
               {link.label === "History" ? (
-                <span className="flex items-center gap-1.5">
-                  <History className="h-3.5 w-3.5" /> {link.label}
+                <span className="flex items-center gap-1">
+                  <History className="h-3 w-3" /> {link.label}
                 </span>
               ) : link.label === "Manage Liquidity" ? (
-                <span className="flex items-center gap-1.5">
-                  <Droplets className="h-3.5 w-3.5" /> {link.label}
+                <span className="flex items-center gap-1">
+                  <Droplets className="h-3 w-3" /> {link.label}
                 </span>
               ) : (
                 link.label
@@ -104,15 +104,15 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={toggleTheme}
             aria-label="Toggle theme"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground"
           >
-            {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            {isLight ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
           </button>
-          <WalletMultiButtonDynamic className="!h-10 !rounded-lg !bg-primary !text-sm !font-medium" />
+          <WalletMultiButtonDynamic className="!h-8 !rounded-md !bg-primary !text-xs !font-medium" />
         </div>
       </div>
 
@@ -124,7 +124,7 @@ export default function Navbar() {
             target={link.external ? "_blank" : undefined}
             rel={link.external ? "noopener noreferrer" : undefined}
             className={cn(
-              "block rounded-lg px-3 py-2 text-sm text-muted-foreground",
+              "block rounded-md px-2.5 py-1.5 text-xs text-muted-foreground",
               pathname === link.href && "bg-secondary text-foreground"
             )}
           >
