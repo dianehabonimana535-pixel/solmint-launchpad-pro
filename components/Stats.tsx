@@ -1,6 +1,8 @@
+import { PLATFORM_CREATION_FEE_SOL } from "@/lib/fees";
+
 const stats = [
-  { value: "0%", label: "Platform fee, always" },
-  { value: "~0.01 SOL", label: "Typical total mint cost" },
+  { value: `${PLATFORM_CREATION_FEE_SOL} SOL`, label: "Flat platform fee" },
+  { value: "1", label: "Wallet signature to mint" },
   { value: "3", label: "Authorities you fully control" },
   { value: "100%", label: "Supply sent to your wallet" },
 ];
