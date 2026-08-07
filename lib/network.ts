@@ -32,6 +32,12 @@ export function solscanTxUrl(signature: string): string {
   return `https://solscan.io/tx/${signature}${SOLSCAN_CLUSTER_SUFFIX}`;
 }
 
+const NATIVE_SOL_MINT = "So11111111111111111111111111111111111111112";
+
+export function raydiumCreatePoolUrl(mintAddress: string): string {
+  return `https://raydium.io/liquidity/create-pool/?base=${mintAddress}&quote=${NATIVE_SOL_MINT}`;
+}
+
 export const PLATFORM_FEE_WALLET =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET &&
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET.length > 0
