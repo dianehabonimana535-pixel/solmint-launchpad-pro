@@ -12,10 +12,7 @@ export default function FeeEstimator({ authoritiesToRevokeCount }: { authorities
     { label: "Mint account rent", value: fees.mintAccountRentSol },
     { label: "Metadata account rent", value: fees.metadataAccountRentSol },
     { label: "Token account rent", value: fees.tokenAccountRentSol },
-    { label: "Network fee (tx 1)", value: fees.networkFeeSol },
-    ...(revokingAnyAuthority
-      ? [{ label: "Network fee (tx 2 — authorities)", value: fees.extraTxNetworkFeeSol }]
-      : []),
+    { label: "Solana network fee", value: fees.networkFeeSol },
     { label: "Platform fee (creation)", value: fees.platformCreationFeeSol },
     ...(revokingAnyAuthority
       ? [
@@ -47,8 +44,9 @@ export default function FeeEstimator({ authoritiesToRevokeCount }: { authorities
         <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-3 w-3 shrink-0" />
           This is a rough estimate. Includes Solana's own rent and network fees, plus SolMint
-          Launchpad's platform fee (0.2 SOL creation + 0.05 SOL per authority revoked). Your
-          wallet shows the exact final amount before you sign.
+          Launchpad's platform fee (0.2 SOL creation + 0.05 SOL per authority revoked) — all
+          bundled into a single signature. Your wallet shows the exact final amount before
+          you sign.
         </p>
       </CardContent>
     </Card>
