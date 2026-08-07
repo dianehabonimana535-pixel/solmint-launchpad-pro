@@ -11,12 +11,12 @@ export default function Hero() {
     <section className="relative overflow-hidden">
       {/* Space background image */}
       <div
-        className="absolute inset-0 -z-20 bg-cover bg-center opacity-60"
+        className="absolute inset-0 -z-20 bg-cover bg-center opacity-90"
         style={{ backgroundImage: "url('/images/earth-space.png')" }}
       />
-      {/* Dark gradient overlay so text stays readable over the photo */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/40 via-background/80 to-background" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(120,80,255,0.2),transparent)]" />
+      {/* Light gradient overlay — just enough to keep text readable over the photo */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/10 via-background/60 to-background" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(120,80,255,0.15),transparent)]" />
 
       <div className="container relative flex flex-col items-center gap-8 pb-24 pt-20 text-center md:pt-28">
         <motion.div
