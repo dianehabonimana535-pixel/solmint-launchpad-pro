@@ -20,6 +20,7 @@ import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
 import { addHistoryEntry } from "@/lib/history";
 import { explorerAddressUrl, explorerTxUrl, solscanAddressUrl, solscanTxUrl, SOLANA_NETWORK } from "@/lib/network";
+import { estimateFees } from "@/lib/fees";
 import { shortenAddress, cn } from "@/lib/utils";
 
 interface FormState {
@@ -92,6 +93,7 @@ export default function TokenCreatorForm() {
     (authorities.revokeFreeze ? 1 : 0) +
     (authorities.revokeUpdate ? 1 : 0);
   const revokingAny = revokeCount > 0;
+  const totalFeeSol = estimateFees(revokeCount).totalSol;
 
   const errors = useMemo(
     () => validate(form, logoFile, wallet.connected, customCreatorEnabled),
@@ -430,6 +432,11 @@ export default function TokenCreatorForm() {
             </CardContent>
           </Card>
         )}
+
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <span className="text-sm text-muted-foreground">Total fees to create this token</span>
+          <span className="font-mono text-base font-semibold gradient-text">{totalFeeSol.toFixed(4)} SOL</span>
+        </div>
 
         <Button
           size="lg"
