@@ -9,7 +9,13 @@ import { SOLANA_NETWORK } from "@/lib/network";
 export default function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(120,80,255,0.2),transparent)]" />
+      {/* Space background image */}
+      <div
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: "url('/images/earth-space.png')" }}
+      />
+      {/* Minimal fade at the bottom so the FAQ/Stats section below transitions cleanly */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-transparent to-background" />
 
       <div className="container relative flex flex-col items-center gap-8 pb-24 pt-20 text-center md:pt-28">
         <motion.div
