@@ -1,4 +1,4 @@
-import { PublicKey, Connection, SystemProgram, Keypair } from "@solana/web3.js";
+import { PublicKey, Connection, SystemProgram } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import {
   AuthorityType,
@@ -6,7 +6,7 @@ import {
 } from "@solana/spl-token";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import { fromWeb3JsInstruction, fromWeb3JsKeypair } from "@metaplex-foundation/umi-web3js-adapters";
+import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
 import {
   mplTokenMetadata,
   createV1,
@@ -15,7 +15,6 @@ import {
   TokenStandard,
 } from "@metaplex-foundation/mpl-token-metadata";
 import {
-  createSignerFromKeypair,
   generateSigner,
   percentAmount,
   publicKey as toUmiPublicKey,
@@ -41,8 +40,6 @@ export interface CreateTokenParams {
   revokeFreeze: boolean;
   revokeUpdate: boolean;
   creatorAddress?: string;
-  /** Optional pre-generated keypair (e.g. from the vanity address grinder) to use as the mint. */
-  mintKeypair?: Keypair;
   onStep?: (step: MintStep) => void;
 }
 
@@ -72,7 +69,6 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     revokeFreeze,
     revokeUpdate,
     creatorAddress,
-    mintKeypair,
     onStep,
   } = params;
 
@@ -87,9 +83,7 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     .use(mplTokenMetadata())
     .use(mplToolbox());
 
-  const mintSigner = mintKeypair
-    ? createSignerFromKeypair(umi, fromWeb3JsKeypair(mintKeypair))
-    : generateSigner(umi);
+  const mintSigner = generateSigner(umi);
   const authority = umi.identity;
   const mintPubkeyWeb3 = new PublicKey(mintSigner.publicKey.toString());
 
