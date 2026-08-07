@@ -11,7 +11,7 @@ export default function Hero() {
     <section className="relative overflow-hidden">
       {/* Space background image */}
       <div
-        className="absolute inset-0 -z-20 bg-cover bg-center opacity-90"
+        className="absolute inset-0 -z-20 bg-cover bg-[position:center_35%] opacity-90"
         style={{ backgroundImage: "url('/images/earth-space.png')" }}
       />
       {/* Light gradient overlay — just enough to keep text readable over the photo */}
