@@ -108,3 +108,107 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     .add(
       createV1(umi, {
         mint: mintSigner,
+        authority,
+        name,
+        symbol,
+        uri: metadataUri,
+        sellerFeeBasisPoints: percentAmount(0, 2),
+        decimals,
+        tokenStandard: TokenStandard.Fungible,
+        creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
+      })
+    )
+    .add(
+      mintV1(umi, {
+        mint: mintSigner.publicKey,
+        authority,
+        amount: BigInt(Math.round(supply * 10 ** decimals)),
+        tokenOwner: toUmiPublicKey(recipientPubkey.toBase58()),
+        tokenStandard: TokenStandard.Fungible,
+      })
+    )
+    .add(
+      transferSol(umi, {
+        source: authority,
+        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+        amount: sol(PLATFORM_CREATION_FEE_SOL),
+      })
+    );
+
+  const revokeCount = [revokeMint, revokeFreeze, revokeUpdate].filter(Boolean).length;
+
+  const mintFreezeIxs: WrappedInstruction[] = [];
+  if (revokeMint) {
+    mintFreezeIxs.push({
+      instruction: fromWeb3JsInstruction(
+        createSetAuthorityInstruction(mintPubkeyWeb3, wallet.publicKey, AuthorityType.MintTokens, null)
+      ),
+      signers: [],
+      bytesCreatedOnChain: 0,
+    });
+  }
+  if (revokeFreeze) {
+    mintFreezeIxs.push({
+      instruction: fromWeb3JsInstruction(
+        createSetAuthorityInstruction(mintPubkeyWeb3, wallet.publicKey, AuthorityType.FreezeAccount, null)
+      ),
+      signers: [],
+      bytesCreatedOnChain: 0,
+    });
+  }
+  for (const ix of mintFreezeIxs) {
+    builder = builder.add(ix);
+  }
+  if (mintFreezeIxs.length > 0) {
+    builder = builder.add(
+      transferSol(umi, {
+        source: authority,
+        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+        amount: sol(PLATFORM_REVOKE_FEE_SOL * mintFreezeIxs.length),
+      })
+    );
+  }
+
+  if (revokeUpdate) {
+    builder = builder
+      .add(
+        updateV1(umi, {
+          mint: mintSigner.publicKey,
+          authority,
+          data: {
+            name,
+            symbol,
+            uri: metadataUri,
+            sellerFeeBasisPoints: 0,
+            creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
+          },
+          newUpdateAuthority: toUmiPublicKey(SystemProgram.programId.toBase58()),
+          isMutable: false,
+        })
+      )
+      .add(
+        transferSol(umi, {
+          source: authority,
+          destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+          amount: sol(PLATFORM_REVOKE_FEE_SOL),
+        })
+      );
+  }
+
+  onStep?.("creating-mint");
+  onStep?.("minting-supply");
+  if (revokeCount > 0) onStep?.("revoking-authorities");
+
+  const { signature } = await builder.sendAndConfirm(umi, {
+    confirm: { commitment: "finalized" },
+  });
+
+  onStep?.("confirming");
+  onStep?.("complete");
+
+  return { mintAddress: mintSigner.publicKey.toString(), signature: bs58EncodeSignature(signature) };
+}
+
+function bs58EncodeSignature(sig: Uint8Array): string {
+  return bs58.encode(sig);
+}
