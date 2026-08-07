@@ -3,8 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
-import { PublicKey } from "@solana/web3.js";
-import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets } from "lucide-react";
+import { PublicKey, Keypair } from "@solana/web3.js";
+import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets, Sparkles, X as XIcon, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { addHistoryEntry } from "@/lib/history";
 import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, SOLANA_NETWORK } from "@/lib/network";
 import { estimateFees } from "@/lib/fees";
 import { shortenAddress, cn } from "@/lib/utils";
+import { grindVanityAddress, isValidVanityPrefix, estimatedAttempts } from "@/lib/vanity";
 
 interface FormState {
   name: string;
@@ -85,6 +86,13 @@ export default function TokenCreatorForm() {
   });
   const [customCreatorEnabled, setCustomCreatorEnabled] = useState(false);
 
+  const [vanityPrefix, setVanityPrefix] = useState("");
+  const [vanityKeypair, setVanityKeypair] = useState<Keypair | null>(null);
+  const [vanityGrinding, setVanityGrinding] = useState(false);
+  const [vanityAttempts, setVanityAttempts] = useState(0);
+  const [vanityError, setVanityError] = useState<string | null>(null);
+  const vanityAbortRef = useRef<AbortController | null>(null);
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [failedIndex, setFailedIndex] = useState<number | null>(null);
@@ -143,6 +151,61 @@ export default function TokenCreatorForm() {
     setBannerPreviewUrl(URL.createObjectURL(file));
   }
 
+  async function startVanityGrind() {
+    const prefix = vanityPrefix.trim();
+    if (!prefix) return;
+    if (!isValidVanityPrefix(prefix)) {
+      setVanityError("Only base58 characters allowed (no 0, O, I, or l)");
+      return;
+    }
+    if (prefix.length > 4) {
+      const proceed = window.confirm(
+        `A ${prefix.length}-character prefix can take a long time to find on a phone (average ~${estimatedAttempts(
+          prefix.length,
+          true
+        ).toLocaleString()} tries). Continue anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    setVanityError(null);
+    setVanityGrinding(true);
+    setVanityAttempts(0);
+    setVanityKeypair(null);
+
+    const controller = new AbortController();
+    vanityAbortRef.current = controller;
+
+    try {
+      const { keypair } = await grindVanityAddress({
+        prefix,
+        onProgress: setVanityAttempts,
+        signal: controller.signal,
+      });
+      setVanityKeypair(keypair);
+      toast.success(`Found an address starting with "${prefix}"`);
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        setVanityError(err?.message || "Vanity address search failed");
+      }
+    } finally {
+      setVanityGrinding(false);
+      vanityAbortRef.current = null;
+    }
+  }
+
+  function cancelVanityGrind() {
+    vanityAbortRef.current?.abort();
+  }
+
+  function clearVanity() {
+    vanityAbortRef.current?.abort();
+    setVanityKeypair(null);
+    setVanityPrefix("");
+    setVanityAttempts(0);
+    setVanityError(null);
+  }
+
   async function handleSubmit() {
     if (errors.length > 0) {
       toast.error(errors[0]);
@@ -195,6 +258,7 @@ export default function TokenCreatorForm() {
         revokeFreeze: authorities.revokeFreeze,
         revokeUpdate: authorities.revokeUpdate,
         creatorAddress: creatorAddress || undefined,
+        mintKeypair: vanityKeypair || undefined,
         onStep: (step) => setCurrentIndex(STEP_INDEX[step]),
       });
 
@@ -228,6 +292,7 @@ export default function TokenCreatorForm() {
     setBannerFile(null);
     setBannerPreviewUrl(null);
     setCustomCreatorEnabled(false);
+    clearVanity();
     setPhase("idle");
     setCurrentIndex(-1);
     setFailedIndex(null);
@@ -281,6 +346,16 @@ export default function TokenCreatorForm() {
                 Raydium runs on mainnet only — this link won't find your token while testing on devnet.
               </p>
             )}
+
+            <Button asChild variant="outline" className="w-full">
+              <a
+                href={buildShareOnXUrl(form.name, form.symbol, result.mintAddress)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <XIcon className="h-4 w-4" /> Share on X
+              </a>
+            </Button>
 
             <Button variant="gradient" className="w-full" onClick={reset}>
               Create another token
@@ -392,6 +467,73 @@ export default function TokenCreatorForm() {
                 onChange={(e) => update("recipient", e.target.value)}
               />
             </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-accent" />
+              Vanity address (Optional)
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                FREE
+              </span>
+            </CardTitle>
+            <CardDescription>
+              Make your token address start with a custom prefix, e.g. "PEPE...". Generated
+              entirely on your device — nothing is sent over the network.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!vanityKeypair ? (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. PEPE"
+                    value={vanityPrefix}
+                    onChange={(e) => {
+                      setVanityPrefix(e.target.value);
+                      setVanityError(null);
+                    }}
+                    maxLength={8}
+                    disabled={vanityGrinding}
+                  />
+                  {!vanityGrinding ? (
+                    <Button type="button" variant="outline" onClick={startVanityGrind} disabled={!vanityPrefix.trim()}>
+                      Generate
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="outline" onClick={cancelVanityGrind}>
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+                {vanityGrinding && (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Searching… {vanityAttempts.toLocaleString()} addresses tried
+                  </p>
+                )}
+                {vanityError && <p className="text-xs text-destructive">{vanityError}</p>}
+                {!vanityGrinding && (
+                  <p className="text-xs text-muted-foreground">
+                    Longer prefixes take exponentially longer. 3–4 characters is usually quick;
+                    5+ can take a while on a phone.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Vanity address ready</p>
+                  <p className="truncate font-mono text-sm">{vanityKeypair.publicKey.toBase58()}</p>
+                  <p className="text-xs text-muted-foreground">{vanityAttempts.toLocaleString()} addresses tried</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={clearVanity}>
+                  Clear
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -563,6 +705,13 @@ function Row({ label, value, onCopy }: { label: string; value: string; onCopy: (
       </button>
     </div>
   );
+}
+
+function buildShareOnXUrl(name: string, symbol: string, mintAddress: string): string {
+  const text = `Just launched ${name} ($${symbol}) on Solana with SolMint Launchpad 🚀🌕\n\n${solscanAddressUrl(
+    mintAddress
+  )}`;
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
 
 function validate(
