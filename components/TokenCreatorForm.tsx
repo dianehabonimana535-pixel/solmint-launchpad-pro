@@ -19,7 +19,7 @@ import FeeEstimator from "@/components/FeeEstimator";
 import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
 import { addHistoryEntry } from "@/lib/history";
-import { explorerAddressUrl, explorerTxUrl, SOLANA_NETWORK } from "@/lib/network";
+import { explorerAddressUrl, explorerTxUrl, solscanAddressUrl, solscanTxUrl, SOLANA_NETWORK } from "@/lib/network";
 import { shortenAddress, cn } from "@/lib/utils";
 
 interface FormState {
@@ -238,6 +238,18 @@ export default function TokenCreatorForm() {
               <Button asChild variant="outline" className="flex-1">
                 <a href={explorerTxUrl(result.signature)} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" /> View Transaction
+                </a>
+              </Button>
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row">
+              <Button asChild variant="outline" className="flex-1">
+                <a href={solscanAddressUrl(result.mintAddress)} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" /> View on Solscan
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="flex-1">
+                <a href={solscanTxUrl(result.signature)} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" /> Tx on Solscan
                 </a>
               </Button>
             </div>
