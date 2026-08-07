@@ -344,8 +344,11 @@ export default function TokenCreatorForm() {
                   className="mt-1"
                 />
                 <div>
-                  <Label htmlFor="customCreator" className="text-base font-semibold">
+                  <Label htmlFor="customCreator" className="flex items-center gap-2 text-base font-semibold">
                     Creator's Info (Optional)
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                      FREE
+                    </span>
                   </Label>
                   <CardDescription className="mt-1">
                     Change the information of the creator in the metadata. By default, it's
@@ -378,7 +381,12 @@ export default function TokenCreatorForm() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Social links</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Social links
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                FREE
+              </span>
+            </CardTitle>
             <CardDescription>Optional — shown in your token metadata.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
