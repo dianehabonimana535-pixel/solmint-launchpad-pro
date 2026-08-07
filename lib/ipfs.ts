@@ -10,16 +10,11 @@ export interface TokenMetadataInput {
   creatorAddress?: string;
 }
 
-/**
- * Uploads the logo image to IPFS via Pinata (proxied through /api/upload so
- * the Pinata JWT never reaches the browser), then builds and uploads the
- * standard Metaplex-compatible metadata JSON. Returns the metadata URI that
- * gets embedded on-chain.
- */
 export async function uploadTokenAssets(
   logo: File,
-  meta: TokenMetadataInput
-): Promise<{ imageUri: string; metadataUri: string }> {
+  meta: TokenMetadataInput,
+  banner?: File | null
+): Promise<{ imageUri: string; bannerUri?: string; metadataUri: string }> {
   const form = new FormData();
   form.append("file", logo);
   form.append("kind", "image");
@@ -31,11 +26,25 @@ export async function uploadTokenAssets(
   }
   const { uri: imageUri } = await imageRes.json();
 
+  let bannerUri: string | undefined;
+  if (banner) {
+    const bannerForm = new FormData();
+    bannerForm.append("file", banner);
+    bannerForm.append("kind", "image");
+    const bannerRes = await fetch("/api/upload", { method: "POST", body: bannerForm });
+    if (!bannerRes.ok) {
+      const err = await safeJson(bannerRes);
+      throw new Error(err?.error || "Banner upload to IPFS failed");
+    }
+    bannerUri = (await bannerRes.json()).uri;
+  }
+
   const metadataJson: Record<string, unknown> = {
     name: meta.name,
     symbol: meta.symbol,
     description: meta.description,
     image: imageUri,
+    ...(bannerUri ? { banner: bannerUri } : {}),
     extensions: {
       website: meta.website || "",
       twitter: meta.twitter || "",
@@ -43,7 +52,10 @@ export async function uploadTokenAssets(
       discord: meta.discord || "",
     },
     properties: {
-      files: [{ uri: imageUri, type: logo.type || "image/png" }],
+      files: [
+        { uri: imageUri, type: logo.type || "image/png" },
+        ...(bannerUri && banner ? [{ uri: bannerUri, type: banner.type || "image/png" }] : []),
+      ],
       category: "image",
       ...(meta.creatorAddress
         ? { creators: [{ address: meta.creatorAddress, share: 100 }] }
@@ -51,9 +63,6 @@ export async function uploadTokenAssets(
     },
   };
 
-  // Optional human-readable creator name. There's no official on-chain
-  // field for this (on-chain creators only store address/share/verified),
-  // so it's stored in the off-chain JSON only, alongside the address.
   if (meta.creatorName || meta.creatorAddress) {
     metadataJson.creator = {
       name: meta.creatorName || "",
@@ -72,7 +81,7 @@ export async function uploadTokenAssets(
   }
   const { uri: metadataUri } = await metaRes.json();
 
-  return { imageUri, metadataUri };
+  return { imageUri, bannerUri, metadataUri };
 }
 
 async function safeJson(res: Response) {
