@@ -71,10 +71,13 @@ export default function TokenCreatorForm() {
   const wallet = useWallet();
   const { connection } = useConnection();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
   const [authorities, setAuthorities] = useState<Authorities>({
     revokeMint: true,
     revokeFreeze: true,
@@ -122,6 +125,24 @@ export default function TokenCreatorForm() {
     setLogoPreviewUrl(URL.createObjectURL(file));
   }
 
+  function handleBannerFile(file: File | null) {
+    if (!file) {
+      setBannerFile(null);
+      setBannerPreviewUrl(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Banner must be an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Banner must be smaller than 5MB");
+      return;
+    }
+    setBannerFile(file);
+    setBannerPreviewUrl(URL.createObjectURL(file));
+  }
+
   async function handleSubmit() {
     if (errors.length > 0) {
       toast.error(errors[0]);
@@ -142,17 +163,21 @@ export default function TokenCreatorForm() {
 
     try {
       setCurrentIndex(STEP_INDEX.logo);
-      const { metadataUri } = await uploadTokenAssets(logoFile as File, {
-        name: form.name.trim(),
-        symbol: form.symbol.trim().toUpperCase(),
-        description: form.description.trim(),
-        website: form.website.trim(),
-        twitter: form.twitter.trim(),
-        telegram: form.telegram.trim(),
-        discord: form.discord.trim(),
-        creatorAddress: creatorAddress || undefined,
-        creatorName: creatorName || undefined,
-      });
+      const { metadataUri } = await uploadTokenAssets(
+        logoFile as File,
+        {
+          name: form.name.trim(),
+          symbol: form.symbol.trim().toUpperCase(),
+          description: form.description.trim(),
+          website: form.website.trim(),
+          twitter: form.twitter.trim(),
+          telegram: form.telegram.trim(),
+          discord: form.discord.trim(),
+          creatorAddress: creatorAddress || undefined,
+          creatorName: creatorName || undefined,
+        },
+        bannerFile
+      );
       setCurrentIndex(STEP_INDEX.metadata);
 
       const recipient = form.recipient.trim() || wallet.publicKey.toBase58();
@@ -200,6 +225,8 @@ export default function TokenCreatorForm() {
     setForm(initialForm);
     setLogoFile(null);
     setLogoPreviewUrl(null);
+    setBannerFile(null);
+    setBannerPreviewUrl(null);
     setCustomCreatorEnabled(false);
     setPhase("idle");
     setCurrentIndex(-1);
@@ -321,6 +348,40 @@ export default function TokenCreatorForm() {
                 accept="image/*"
                 className="hidden"
                 onChange={(e) => handleFile(e.target.files?.[0] || null)}
+              />
+            </Field>
+
+            <Field
+              label={
+                <span className="flex items-center gap-2">
+                  Banner (Optional)
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                    FREE
+                  </span>
+                </span>
+              }
+              hint="Wide image shown on DEX Screener and similar sites, e.g. 1500×500px"
+            >
+              <div
+                onClick={() => bannerInputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-6 text-center transition-colors hover:border-primary/60"
+              >
+                {bannerPreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={bannerPreviewUrl} alt="Banner preview" className="h-16 w-full rounded-lg object-cover" />
+                ) : (
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {bannerFile ? bannerFile.name : "PNG or JPG, wide format, up to 5MB"}
+                </p>
+              </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleBannerFile(e.target.files?.[0] || null)}
               />
             </Field>
 
@@ -476,7 +537,7 @@ function Field({
   hint,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   required?: boolean;
   hint?: string;
   children: React.ReactNode;
