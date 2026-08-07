@@ -3,6 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Lock, Snowflake, PenOff } from "lucide-react";
+import { PLATFORM_REVOKE_FEE_SOL } from "@/lib/fees";
 
 export interface Authorities {
   revokeMint: boolean;
@@ -66,6 +67,9 @@ export default function AuthorityOptions({
               <Label htmlFor={item.key} className="flex items-center gap-2 text-sm font-semibold">
                 <item.icon className="h-3.5 w-3.5 text-accent" />
                 {item.title}
+                <span className="ml-auto rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[11px] font-medium text-accent">
+                  {PLATFORM_REVOKE_FEE_SOL} SOL
+                </span>
               </Label>
               <p className="mt-1.5 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground/80">If revoked: </span>
