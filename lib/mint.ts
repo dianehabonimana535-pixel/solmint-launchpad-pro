@@ -1,4 +1,4 @@
-import { PublicKey, Connection, SystemProgram } from "@solana/web3.js";
+import { PublicKey, Connection, SystemProgram, Keypair } from "@solana/web3.js";
 import type { WalletContextState } from "@solana/wallet-adapter-react";
 import {
   AuthorityType,
@@ -6,7 +6,10 @@ import {
 } from "@solana/spl-token";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import { fromWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
+import {
+  fromWeb3JsInstruction,
+  fromWeb3JsKeypair,
+} from "@metaplex-foundation/umi-web3js-adapters";
 import {
   mplTokenMetadata,
   createV1,
@@ -15,6 +18,7 @@ import {
   TokenStandard,
 } from "@metaplex-foundation/mpl-token-metadata";
 import {
+  createSignerFromKeypair,
   generateSigner,
   percentAmount,
   publicKey as toUmiPublicKey,
@@ -40,6 +44,7 @@ export interface CreateTokenParams {
   revokeFreeze: boolean;
   revokeUpdate: boolean;
   creatorAddress?: string;
+  mintKeypair?: Keypair; // optional vanity address keypair
   onStep?: (step: MintStep) => void;
 }
 
@@ -69,6 +74,7 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     revokeFreeze,
     revokeUpdate,
     creatorAddress,
+    mintKeypair,
     onStep,
   } = params;
 
@@ -83,7 +89,11 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     .use(mplTokenMetadata())
     .use(mplToolbox());
 
-  const mintSigner = generateSigner(umi);
+  // Use the caller-supplied vanity keypair if provided, otherwise generate
+  // a random mint keypair as before.
+  const mintSigner = mintKeypair
+    ? createSignerFromKeypair(umi, fromWeb3JsKeypair(mintKeypair))
+    : generateSigner(umi);
   const authority = umi.identity;
   const mintPubkeyWeb3 = new PublicKey(mintSigner.publicKey.toString());
 
@@ -98,107 +108,3 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     .add(
       createV1(umi, {
         mint: mintSigner,
-        authority,
-        name,
-        symbol,
-        uri: metadataUri,
-        sellerFeeBasisPoints: percentAmount(0, 2),
-        decimals,
-        tokenStandard: TokenStandard.Fungible,
-        creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
-      })
-    )
-    .add(
-      mintV1(umi, {
-        mint: mintSigner.publicKey,
-        authority,
-        amount: BigInt(Math.round(supply * 10 ** decimals)),
-        tokenOwner: toUmiPublicKey(recipientPubkey.toBase58()),
-        tokenStandard: TokenStandard.Fungible,
-      })
-    )
-    .add(
-      transferSol(umi, {
-        source: authority,
-        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-        amount: sol(PLATFORM_CREATION_FEE_SOL),
-      })
-    );
-
-  const revokeCount = [revokeMint, revokeFreeze, revokeUpdate].filter(Boolean).length;
-
-  const mintFreezeIxs: WrappedInstruction[] = [];
-  if (revokeMint) {
-    mintFreezeIxs.push({
-      instruction: fromWeb3JsInstruction(
-        createSetAuthorityInstruction(mintPubkeyWeb3, wallet.publicKey, AuthorityType.MintTokens, null)
-      ),
-      signers: [],
-      bytesCreatedOnChain: 0,
-    });
-  }
-  if (revokeFreeze) {
-    mintFreezeIxs.push({
-      instruction: fromWeb3JsInstruction(
-        createSetAuthorityInstruction(mintPubkeyWeb3, wallet.publicKey, AuthorityType.FreezeAccount, null)
-      ),
-      signers: [],
-      bytesCreatedOnChain: 0,
-    });
-  }
-  for (const ix of mintFreezeIxs) {
-    builder = builder.add(ix);
-  }
-  if (mintFreezeIxs.length > 0) {
-    builder = builder.add(
-      transferSol(umi, {
-        source: authority,
-        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-        amount: sol(PLATFORM_REVOKE_FEE_SOL * mintFreezeIxs.length),
-      })
-    );
-  }
-
-  if (revokeUpdate) {
-    builder = builder
-      .add(
-        updateV1(umi, {
-          mint: mintSigner.publicKey,
-          authority,
-          data: {
-            name,
-            symbol,
-            uri: metadataUri,
-            sellerFeeBasisPoints: 0,
-            creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
-          },
-          newUpdateAuthority: toUmiPublicKey(SystemProgram.programId.toBase58()),
-          isMutable: false,
-        })
-      )
-      .add(
-        transferSol(umi, {
-          source: authority,
-          destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-          amount: sol(PLATFORM_REVOKE_FEE_SOL),
-        })
-      );
-  }
-
-  onStep?.("creating-mint");
-  onStep?.("minting-supply");
-  if (revokeCount > 0) onStep?.("revoking-authorities");
-
-  const { signature } = await builder.sendAndConfirm(umi, {
-    confirm: { commitment: "finalized" },
-  });
-
-  onStep?.("confirming");
-  onStep?.("complete");
-
-  return { mintAddress: mintSigner.publicKey.toString(), signature: bs58EncodeSignature(signature) };
-}
-
-function bs58EncodeSignature(sig: Uint8Array): string {
-  return bs58.encode(sig);
-}
