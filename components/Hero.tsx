@@ -11,7 +11,7 @@ export default function Hero() {
     <section className="relative overflow-hidden">
       {/* Space background image */}
       <div
-        className="absolute inset-0 -z-20 bg-cover bg-center"
+        className="absolute inset-0 -z-20 bg-contain bg-no-repeat bg-top"
         style={{ backgroundImage: "url('/images/earth-space.png')" }}
       />
       {/* Minimal fade at the bottom so the FAQ/Stats section below transitions cleanly */}
