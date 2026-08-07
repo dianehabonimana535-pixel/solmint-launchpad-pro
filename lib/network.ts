@@ -22,6 +22,16 @@ export function explorerTxUrl(signature: string): string {
   return `https://explorer.solana.com/tx/${signature}${EXPLORER_CLUSTER_SUFFIX}`;
 }
 
+const SOLSCAN_CLUSTER_SUFFIX = SOLANA_NETWORK === "devnet" ? "?cluster=devnet" : "";
+
+export function solscanAddressUrl(address: string): string {
+  return `https://solscan.io/token/${address}${SOLSCAN_CLUSTER_SUFFIX}`;
+}
+
+export function solscanTxUrl(signature: string): string {
+  return `https://solscan.io/tx/${signature}${SOLSCAN_CLUSTER_SUFFIX}`;
+}
+
 export const PLATFORM_FEE_WALLET =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET &&
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET.length > 0
