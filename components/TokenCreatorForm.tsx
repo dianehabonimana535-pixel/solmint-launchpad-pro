@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { PublicKey } from "@solana/web3.js";
-import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import FeeEstimator from "@/components/FeeEstimator";
 import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
 import { addHistoryEntry } from "@/lib/history";
-import { explorerAddressUrl, explorerTxUrl, solscanAddressUrl, solscanTxUrl, SOLANA_NETWORK } from "@/lib/network";
+import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, SOLANA_NETWORK } from "@/lib/network";
 import { estimateFees } from "@/lib/fees";
 import { shortenAddress, cn } from "@/lib/utils";
 
@@ -233,28 +233,27 @@ export default function TokenCreatorForm() {
 
             <div className="flex w-full flex-col gap-2 sm:flex-row">
               <Button asChild variant="outline" className="flex-1">
-                <a href={explorerAddressUrl(result.mintAddress)} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" /> View Token
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="flex-1">
-                <a href={explorerTxUrl(result.signature)} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" /> View Transaction
-                </a>
-              </Button>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:flex-row">
-              <Button asChild variant="outline" className="flex-1">
                 <a href={solscanAddressUrl(result.mintAddress)} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" /> View on Solscan
+                  <ExternalLink className="h-4 w-4" /> View Token on Solscan
                 </a>
               </Button>
               <Button asChild variant="outline" className="flex-1">
                 <a href={solscanTxUrl(result.signature)} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4" /> Tx on Solscan
+                  <ExternalLink className="h-4 w-4" /> View Transaction
                 </a>
               </Button>
             </div>
+
+            <Button asChild variant="outline" className="w-full">
+              <a href={raydiumCreatePoolUrl(result.mintAddress)} target="_blank" rel="noreferrer">
+                <Droplets className="h-4 w-4" /> Manage Liquidity
+              </a>
+            </Button>
+            {SOLANA_NETWORK === "devnet" && (
+              <p className="text-xs text-muted-foreground/70">
+                Raydium runs on mainnet only — this link won't find your token while testing on devnet.
+              </p>
+            )}
 
             <Button variant="gradient" className="w-full" onClick={reset}>
               Create another token
