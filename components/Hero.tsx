@@ -12,7 +12,7 @@ export default function Hero() {
       {/* Space background image */}
       <div
         className="absolute inset-0 -z-20 bg-cover bg-center opacity-60"
-        style={{ backgroundImage: "url('/images/earth-space.jpg')" }}
+        style={{ backgroundImage: "url('/images/earth-space.png')" }}
       />
       {/* Dark gradient overlay so text stays readable over the photo */}
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/40 via-background/80 to-background" />
