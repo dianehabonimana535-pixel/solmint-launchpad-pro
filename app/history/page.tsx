@@ -91,22 +91,14 @@ export default function HistoryPage() {
                       <BarChart3 className="h-3.5 w-3.5" /> Dashboard
                     </Link>
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      const shareUrl = buildShareOnXUrl(
-                        entry.name,
-                        entry.symbol,
-                        entry.mintAddress,
-                        entry.revokedCount
-                      );
-
-                      window.location.href = shareUrl;
-                    }}
-                  >
-                    <XIcon className="h-3.5 w-3.5" /> Share on X
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <a
+                      href={buildShareOnXUrl(entry.name, entry.symbol, entry.mintAddress, entry.revokedCount)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <XIcon className="h-3.5 w-3.5" /> Share on X
+                    </a>
                   </Button>
                 </CardContent>
               </Card>
