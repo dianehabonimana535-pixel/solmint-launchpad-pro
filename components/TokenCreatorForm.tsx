@@ -591,9 +591,9 @@ function buildShareOnXUrl(
       ? `${revokedCount}/3 authorities revoked.`
       : "";
 
-  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\n🔗 ${solscanAddressUrl(
+  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\nCA: ${mintAddress}\n🔗 ${solscanAddressUrl(
     mintAddress
-)}\n🛠️ Built on https://luna-launch.vercel.app`;
+  )}\n🛠️ Built on https://luna-launch.vercel.app`;
 
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
