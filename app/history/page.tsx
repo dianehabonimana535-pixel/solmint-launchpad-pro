@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Copy, ExternalLink, Trash2, Coins, BarChart3 } from "lucide-react";
+import { Copy, ExternalLink, Trash2, Coins, BarChart3, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Footer from "@/components/Footer";
 import { getHistory, clearHistory, TokenHistoryEntry } from "@/lib/history";
-import { explorerAddressUrl, explorerTxUrl } from "@/lib/network";
+import { explorerAddressUrl, explorerTxUrl, buildShareOnXUrl } from "@/lib/network";
 import { shortenAddress } from "@/lib/utils";
 
 export default function HistoryPage() {
@@ -90,6 +90,15 @@ export default function HistoryPage() {
                     <Link href={`/token/${entry.mintAddress}`}>
                       <BarChart3 className="h-3.5 w-3.5" /> Dashboard
                     </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="w-full">
+                    <a
+                      href={buildShareOnXUrl(entry.name, entry.symbol, entry.mintAddress, entry.revokedCount)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <XIcon className="h-3.5 w-3.5" /> Share on X
+                    </a>
                   </Button>
                 </CardContent>
               </Card>
