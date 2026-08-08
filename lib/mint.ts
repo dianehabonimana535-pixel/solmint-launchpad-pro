@@ -22,7 +22,7 @@ import {
   transactionBuilder,
   type WrappedInstruction,
 } from "@metaplex-foundation/umi";
-import { mplToolbox, transferSol } from "@metaplex-foundation/mpl-toolbox";
+import { mplToolbox, transferSol, setComputeUnitLimit } from "@metaplex-foundation/mpl-toolbox";
 import bs58 from "bs58";
 import { RPC_ENDPOINT, PLATFORM_FEE_WALLET } from "./network";
 import { PLATFORM_CREATION_FEE_SOL, PLATFORM_REVOKE_FEE_SOL } from "./fees";
@@ -95,6 +95,7 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
   onStep?.("building");
 
   let builder = transactionBuilder()
+    .add(setComputeUnitLimit(umi, { units: 600_000 }))
     .add(
       createV1(umi, {
         mint: mintSigner,
@@ -115,13 +116,6 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
         amount: BigInt(Math.round(supply * 10 ** decimals)),
         tokenOwner: toUmiPublicKey(recipientPubkey.toBase58()),
         tokenStandard: TokenStandard.Fungible,
-      })
-    )
-    .add(
-      transferSol(umi, {
-        source: authority,
-        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-        amount: sol(PLATFORM_CREATION_FEE_SOL),
       })
     );
 
@@ -149,41 +143,35 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
   for (const ix of mintFreezeIxs) {
     builder = builder.add(ix);
   }
-  if (mintFreezeIxs.length > 0) {
+
+  if (revokeUpdate) {
     builder = builder.add(
-      transferSol(umi, {
-        source: authority,
-        destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-        amount: sol(PLATFORM_REVOKE_FEE_SOL * mintFreezeIxs.length),
+      updateV1(umi, {
+        mint: mintSigner.publicKey,
+        authority,
+        data: {
+          name,
+          symbol,
+          uri: metadataUri,
+          sellerFeeBasisPoints: 0,
+          creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
+        },
+        newUpdateAuthority: toUmiPublicKey(SystemProgram.programId.toBase58()),
+        isMutable: false,
       })
     );
   }
 
-  if (revokeUpdate) {
-    builder = builder
-      .add(
-        updateV1(umi, {
-          mint: mintSigner.publicKey,
-          authority,
-          data: {
-            name,
-            symbol,
-            uri: metadataUri,
-            sellerFeeBasisPoints: 0,
-            creators: [{ address: creatorPubkey, verified: creatorVerified, share: 100 }],
-          },
-          newUpdateAuthority: toUmiPublicKey(SystemProgram.programId.toBase58()),
-          isMutable: false,
-        })
-      )
-      .add(
-        transferSol(umi, {
-          source: authority,
-          destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
-          amount: sol(PLATFORM_REVOKE_FEE_SOL),
-        })
-      );
-  }
+  // Un seul transfert de frais, agrégeant création + toutes les révocations demandées.
+  const totalFeeSol =
+    PLATFORM_CREATION_FEE_SOL + PLATFORM_REVOKE_FEE_SOL * revokeCount;
+  builder = builder.add(
+    transferSol(umi, {
+      source: authority,
+      destination: toUmiPublicKey(PLATFORM_FEE_WALLET),
+      amount: sol(totalFeeSol),
+    })
+  );
 
   onStep?.("creating-mint");
   onStep?.("minting-supply");
