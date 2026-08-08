@@ -67,5 +67,5 @@ export function buildShareOnXUrl(
     mintAddress
   )}\n${SITE_URL}`;
 
-  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  return `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
 }
