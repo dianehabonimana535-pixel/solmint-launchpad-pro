@@ -277,11 +277,6 @@ export default function TokenCreatorForm() {
                 <Droplets className="h-4 w-4" /> Manage Liquidity
               </a>
             </Button>
-            {SOLANA_NETWORK === "devnet" && (
-              <p className="text-xs text-muted-foreground/70">
-                Raydium runs on mainnet only — this link won't find your token while testing on devnet.
-              </p>
-            )}
 
             <Button asChild variant="outline" className="w-full">
               <a
