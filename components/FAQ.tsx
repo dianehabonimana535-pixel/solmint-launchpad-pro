@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SOLANA_NETWORK } from "@/lib/network";
 import { PLATFORM_CREATION_FEE_SOL, PLATFORM_REVOKE_FEE_SOL } from "@/lib/fees";
 
 const faqs = [
@@ -29,7 +28,7 @@ const faqs = [
   },
   {
     q: "Which network does this run on?",
-    a: `Solana ${SOLANA_NETWORK}. ${SOLANA_NETWORK === "devnet" ? "This deployment is currently running on devnet for testing — tokens use free devnet SOL and are not real assets." : "Tokens you create here are real, live SPL tokens immediately tradable by anyone holding SOL."}`,
+    a: "Solana mainnet-beta. Tokens you create here are real, live SPL tokens immediately tradable by anyone holding SOL.",
   },
   {
     q: "Can I undo a revoked authority?",
