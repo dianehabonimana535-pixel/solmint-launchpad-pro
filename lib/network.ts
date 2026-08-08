@@ -43,3 +43,29 @@ export const PLATFORM_FEE_WALLET =
   process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET.length > 0
     ? process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET
     : "63kE7LaqwammEdKgaoygvCEGmbEkazZLBTRn2gJYzhhy";
+
+export const SITE_URL = "https://luna-launch.vercel.app";
+
+/**
+ * Builds a pre-filled "Share on X" intent URL for a created token. Used both
+ * right after mint and from the History page for past tokens.
+ */
+export function buildShareOnXUrl(
+  name: string,
+  symbol: string,
+  mintAddress: string,
+  revokedCount?: number
+): string {
+  const trustLine =
+    revokedCount === 3
+      ? "All authorities revoked — zero rug pull risk."
+      : typeof revokedCount === "number" && revokedCount > 0
+      ? `${revokedCount}/3 authorities revoked.`
+      : "";
+
+  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\nCA: ${mintAddress}\n🔗 ${solscanAddressUrl(
+    mintAddress
+  )}\n🛠️ Built on ${SITE_URL}`;
+
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
