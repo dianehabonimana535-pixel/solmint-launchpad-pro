@@ -95,13 +95,16 @@ export default function HistoryPage() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() =>
-                      window.open(
-                        buildShareOnXUrl(entry.name, entry.symbol, entry.mintAddress, entry.revokedCount),
-                        "_blank",
-                        "noopener,noreferrer"
-                      )
-                    }
+                    onClick={() => {
+                      const shareUrl = buildShareOnXUrl(
+                        entry.name,
+                        entry.symbol,
+                        entry.mintAddress,
+                        entry.revokedCount
+                      );
+
+                      window.location.href = shareUrl;
+                    }}
                   >
                     <XIcon className="h-3.5 w-3.5" /> Share on X
                   </Button>
