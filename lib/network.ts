@@ -58,14 +58,14 @@ export function buildShareOnXUrl(
 ): string {
   const trustLine =
     revokedCount === 3
-      ? "All authorities revoked — zero rug pull risk."
+      ? "All authorities revoked, zero rug pull risk."
       : typeof revokedCount === "number" && revokedCount > 0
       ? `${revokedCount}/3 authorities revoked.`
       : "";
 
-  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\nCA: ${mintAddress}\n🔗 ${solscanAddressUrl(
+  const text = `🚀 ${name} ($${symbol}) just launched on Solana! ${trustLine}\n\nCA: ${mintAddress}\n${solscanAddressUrl(
     mintAddress
-  )}\n🛠️ Built on ${SITE_URL}`;
+  )}\n${SITE_URL}`;
 
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
 }
