@@ -5,6 +5,8 @@ export interface TokenHistoryEntry {
   signature: string;
   createdAt: string; // ISO date
   imageUri?: string;
+  /** How many of the 3 authorities (mint/freeze/update) were revoked at creation time. */
+  revokedCount?: number;
 }
 
 const STORAGE_KEY = "solmint.history";
