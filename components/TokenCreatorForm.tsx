@@ -19,7 +19,7 @@ import FeeEstimator from "@/components/FeeEstimator";
 import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
 import { addHistoryEntry } from "@/lib/history";
-import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, SOLANA_NETWORK } from "@/lib/network";
+import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, SOLANA_NETWORK, buildShareOnXUrl } from "@/lib/network";
 import { estimateFees } from "@/lib/fees";
 import { shortenAddress, cn } from "@/lib/utils";
 
@@ -208,6 +208,7 @@ export default function TokenCreatorForm() {
         mintAddress: mintResult.mintAddress,
         signature: mintResult.signature,
         createdAt: new Date().toISOString(),
+        revokedCount: revokeCount,
       });
 
       toast.success(`Token created on Solana ${SOLANA_NETWORK}!`);
@@ -284,7 +285,7 @@ export default function TokenCreatorForm() {
 
             <Button asChild variant="outline" className="w-full">
               <a
-                href={buildShareOnXUrl(form.name, form.symbol, result.mintAddress, authorities)}
+                href={buildShareOnXUrl(form.name, form.symbol, result.mintAddress, revokeCount)}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -575,29 +576,6 @@ function Row({ label, value, onCopy }: { label: string; value: string; onCopy: (
   );
 }
 
-function buildShareOnXUrl(
-  name: string,
-  symbol: string,
-  mintAddress: string,
-  authorities: Authorities
-): string {
-  const revokedCount = [authorities.revokeMint, authorities.revokeFreeze, authorities.revokeUpdate].filter(
-    Boolean
-  ).length;
-  const trustLine =
-    revokedCount === 3
-      ? "All authorities revoked — zero rug pull risk."
-      : revokedCount > 0
-      ? `${revokedCount}/3 authorities revoked.`
-      : "";
-
-  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\nCA: ${mintAddress}\n🔗 ${solscanAddressUrl(
-    mintAddress
-  )}\n🛠️ Built on https://luna-launch.vercel.app`;
-
-  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-}
-
 function validate(
   form: FormState,
   logoFile: File | null,
@@ -659,4 +637,4 @@ function validate(
   }
 
   return errors;
-    }
+}
