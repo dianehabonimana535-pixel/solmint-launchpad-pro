@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { PublicKey } from "@solana/web3.js";
-import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets } from "lucide-react";
+import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets, X as XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -281,6 +281,16 @@ export default function TokenCreatorForm() {
                 Raydium runs on mainnet only — this link won't find your token while testing on devnet.
               </p>
             )}
+
+            <Button asChild variant="outline" className="w-full">
+              <a
+                href={buildShareOnXUrl(form.name, form.symbol, result.mintAddress, authorities)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <XIcon className="h-4 w-4" /> Share on X
+              </a>
+            </Button>
 
             <Button variant="gradient" className="w-full" onClick={reset}>
               Create another token
@@ -565,6 +575,29 @@ function Row({ label, value, onCopy }: { label: string; value: string; onCopy: (
   );
 }
 
+function buildShareOnXUrl(
+  name: string,
+  symbol: string,
+  mintAddress: string,
+  authorities: Authorities
+): string {
+  const revokedCount = [authorities.revokeMint, authorities.revokeFreeze, authorities.revokeUpdate].filter(
+    Boolean
+  ).length;
+  const trustLine =
+    revokedCount === 3
+      ? "All authorities revoked — zero rug pull risk."
+      : revokedCount > 0
+      ? `${revokedCount}/3 authorities revoked.`
+      : "";
+
+  const text = `🚀 Just launched ${name} ($${symbol}) on Solana!\n\nCreated in seconds with SolMint Launchpad. ${trustLine}\n\n🔗 ${solscanAddressUrl(
+    mintAddress
+)}\n🛠️ Built on https://luna-launch.vercel.app`;
+
+  return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
 function validate(
   form: FormState,
   logoFile: File | null,
@@ -626,4 +659,4 @@ function validate(
   }
 
   return errors;
-}
+    }
