@@ -283,21 +283,14 @@ export default function TokenCreatorForm() {
               </p>
             )}
 
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                const shareUrl = buildShareOnXUrl(
-                  form.name,
-                  form.symbol,
-                  result.mintAddress,
-                  revokeCount
-                );
-
-                window.location.href = shareUrl;
-              }}
-            >
-              <XIcon className="h-4 w-4" /> Share on X
+            <Button asChild variant="outline" className="w-full">
+              <a
+                href={buildShareOnXUrl(form.name, form.symbol, result.mintAddress, revokeCount)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <XIcon className="h-4 w-4" /> Share on X
+              </a>
             </Button>
 
             <Button variant="gradient" className="w-full" onClick={reset}>
