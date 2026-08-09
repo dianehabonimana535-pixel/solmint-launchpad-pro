@@ -504,6 +504,13 @@ export default function TokenCreatorForm() {
           <span className="font-mono text-base font-semibold gradient-text">{totalFeeSol.toFixed(4)} SOL</span>
         </div>
 
+        <p className="text-xs text-muted-foreground">
+          ⚠️ Your wallet will be charged the creation amount shown above (
+          <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
+          ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
+          the network fee — the total amount charged will still match what&apos;s shown here.
+        </p>
+
         <Button
           size="lg"
           variant="gradient"
