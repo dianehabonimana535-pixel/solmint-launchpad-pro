@@ -2,6 +2,8 @@ import { Connection, clusterApiUrl } from "@solana/web3.js";
 
 export const SOLANA_NETWORK = "mainnet-beta";
 
+export const NETWORK_LABEL = "Mainnet";
+
 export const RPC_ENDPOINT =
   process.env.NEXT_PUBLIC_SOLANA_RPC_URL && process.env.NEXT_PUBLIC_SOLANA_RPC_URL.length > 0
     ? process.env.NEXT_PUBLIC_SOLANA_RPC_URL
