@@ -19,7 +19,7 @@ import FeeEstimator from "@/components/FeeEstimator";
 import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
 import { addHistoryEntry } from "@/lib/history";
-import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, SOLANA_NETWORK, buildShareOnXUrl } from "@/lib/network";
+import { solscanAddressUrl, solscanTxUrl, raydiumCreatePoolUrl, NETWORK_LABEL, buildShareOnXUrl } from "@/lib/network";
 import { estimateFees } from "@/lib/fees";
 import { shortenAddress, cn } from "@/lib/utils";
 
@@ -211,7 +211,7 @@ export default function TokenCreatorForm() {
         revokedCount: revokeCount,
       });
 
-      toast.success(`Token created on Solana ${SOLANA_NETWORK}!`);
+      toast.success(`Token created on Solana ${NETWORK_LABEL}!`);
     } catch (err: any) {
       console.error(err);
       setFailedIndex(currentIndex);
@@ -251,7 +251,7 @@ export default function TokenCreatorForm() {
             </div>
             <h2 className="font-display text-2xl font-bold">Your token is live</h2>
             <p className="text-sm text-muted-foreground">
-              {form.name} (${form.symbol}) has been minted on Solana {SOLANA_NETWORK}.
+              {form.name} (${form.symbol}) has been minted on Solana {NETWORK_LABEL}.
             </p>
 
             <div className="w-full space-y-2 rounded-xl border border-border bg-secondary/30 p-4 text-left">
@@ -518,7 +518,7 @@ export default function TokenCreatorForm() {
           disabled={phase === "running" || !wallet.connected}
           onClick={handleSubmit}
         >
-          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating token…" : `Create token on ${SOLANA_NETWORK}`}
+          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating token…" : `Create token on ${NETWORK_LABEL}`}
         </Button>
         {errors.length > 0 && wallet.connected && (
           <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
