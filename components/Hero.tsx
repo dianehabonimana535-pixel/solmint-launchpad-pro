@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Zap, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SOLANA_NETWORK } from "@/lib/network";
+import { NETWORK_LABEL } from "@/lib/network";
 
 export default function Hero() {
   return (
@@ -72,7 +72,7 @@ export default function Hero() {
           {[
             { icon: Ban, label: "One flat fee", desc: "0.2 SOL, no hidden costs" },
             { icon: ShieldCheck, label: "Non-custodial", desc: "We never see your keys" },
-            { icon: Zap, label: "Mints in seconds", desc: `${SOLANA_NETWORK}, no queue` },
+            { icon: Zap, label: "Mints in seconds", desc: `${NETWORK_LABEL}, no queue` },
           ].map((f) => (
             <div key={f.label} className="glass flex flex-col items-center gap-1.5 rounded-xl px-4 py-5">
               <f.icon className="h-5 w-5 text-accent" />
