@@ -7,6 +7,7 @@ import { Coins, Moon, Sun, History, Droplets } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getHistory } from "@/lib/history";
+import { raydiumCreatePoolUrl } from "@/lib/network";
 
 const WalletMultiButtonDynamic = dynamic(
   async () => (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
@@ -31,7 +32,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [isLight, setIsLight] = useState(false);
   const [liquidityHref, setLiquidityHref] = useState(
-    "https://raydium.io/liquidity/create/"
+    "https://raydium.io/liquidity/"
   );
 
   useEffect(() => {
@@ -46,9 +47,7 @@ export default function Navbar() {
     const history = getHistory();
     if (history.length > 0) {
       const lastToken = history[0];
-      setLiquidityHref(
-        `https://raydium.io/liquidity/create-pool/?token=${lastToken.mintAddress}`
-      );
+      setLiquidityHref(raydiumCreatePoolUrl(lastToken.mintAddress));
     }
   }, [pathname]);
 
