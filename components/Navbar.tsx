@@ -62,7 +62,7 @@ export default function Navbar() {
 
   const links: NavLink[] = [
     ...baseLinks.slice(0, 2),
-    { href: liquidityHref, label: "Manage Liquidity", external: true },
+    { href: liquidityHref, label: "Create Liquidity Pool", external: true },
     ...baseLinks.slice(2),
   ];
 
@@ -93,7 +93,7 @@ export default function Navbar() {
                 <span className="flex items-center gap-1">
                   <History className="h-3 w-3" /> {link.label}
                 </span>
-              ) : link.label === "Manage Liquidity" ? (
+              ) : link.label === "Create Liquidity Pool" ? (
                 <span className="flex items-center gap-1">
                   <Droplets className="h-3 w-3" /> {link.label}
                 </span>
