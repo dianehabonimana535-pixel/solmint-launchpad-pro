@@ -325,3 +325,318 @@ export default function TokenCreatorForm() {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Decimals" required hint="9 is the Solana standard for meme coins">
+                <Input type="number" min={0} max={9} value={form.decimals} onChange={(e) => update("decimals", e.target.value)} />
+              </Field>
+              <Field label="Initial supply" required>
+                <Input type="number" min={1} value={form.supply} onChange={(e) => update("supply", e.target.value)} />
+              </Field>
+            </div>
+
+            <Field label="Logo" required>
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-8 text-center transition-colors hover:border-primary/60"
+              >
+                {logoPreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoPreviewUrl} alt="Logo preview" className="h-16 w-16 rounded-lg object-cover" />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {logoFile ? logoFile.name : "PNG or JPG, square, up to 5MB"}
+                </p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFile(e.target.files?.[0] || null)}
+              />
+            </Field>
+
+            <Field
+              label={
+                <span className="flex items-center gap-2">
+                  Banner (Optional)
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                    FREE
+                  </span>
+                </span>
+              }
+              hint="Wide image shown on DEX Screener and similar sites, e.g. 1500×500px"
+            >
+              <div
+                onClick={() => bannerInputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-6 text-center transition-colors hover:border-primary/60"
+              >
+                {bannerPreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={bannerPreviewUrl} alt="Banner preview" className="h-16 w-full rounded-lg object-cover" />
+                ) : (
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {bannerFile ? bannerFile.name : "PNG or JPG, wide format, up to 5MB"}
+                </p>
+              </div>
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleBannerFile(e.target.files?.[0] || null)}
+              />
+            </Field>
+
+            <Field label="Recipient wallet" hint="Defaults to your connected wallet if left blank">
+              <Input
+                placeholder={wallet.publicKey?.toBase58() || "Connect wallet for default"}
+                value={form.recipient}
+                onChange={(e) => update("recipient", e.target.value)}
+              />
+            </Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="customCreator"
+                  checked={customCreatorEnabled}
+                  onCheckedChange={(v) => setCustomCreatorEnabled(Boolean(v))}
+                  className="mt-1"
+                />
+                <div>
+                  <Label htmlFor="customCreator" className="flex items-center gap-2 text-base font-semibold">
+                    Creator's Info (Optional)
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                      FREE
+                    </span>
+                  </Label>
+                  <CardDescription className="mt-1">
+                    Change the information of the creator in the metadata. By default, it's
+                    your connected wallet.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          {customCreatorEnabled && (
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Creator's Address" required hint="Won't be marked verified — it hasn't signed this transaction">
+                <Input
+                  placeholder="Ex: 3stNIYCJd..."
+                  value={form.creatorAddress}
+                  onChange={(e) => update("creatorAddress", e.target.value)}
+                />
+              </Field>
+              <Field label="Creator's Name" required>
+                <Input
+                  placeholder="Ex: John Doe"
+                  value={form.creatorName}
+                  onChange={(e) => update("creatorName", e.target.value)}
+                  maxLength={64}
+                />
+              </Field>
+            </CardContent>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Social links
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                FREE
+              </span>
+            </CardTitle>
+            <CardDescription>Optional — shown in your token metadata.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="Website"><Input placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} /></Field>
+            <Field label="Twitter / X"><Input placeholder="https://x.com/..." value={form.twitter} onChange={(e) => update("twitter", e.target.value)} /></Field>
+            <Field label="Telegram"><Input placeholder="https://t.me/..." value={form.telegram} onChange={(e) => update("telegram", e.target.value)} /></Field>
+            <Field label="Discord"><Input placeholder="https://discord.gg/..." value={form.discord} onChange={(e) => update("discord", e.target.value)} /></Field>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Token authorities</CardTitle>
+            <CardDescription>Choose what to permanently give up for holder trust.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AuthorityOptions value={authorities} onChange={setAuthorities} />
+          </CardContent>
+        </Card>
+
+        {phase === "running" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Creating your token…</CardTitle>
+              <CardDescription>Approve each transaction in your wallet when prompted.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProgressSteps steps={MINT_STEPS} currentIndex={currentIndex} failedIndex={failedIndex} />
+            </CardContent>
+          </Card>
+        )}
+
+        {phase === "error" && (
+          <Card className="border-destructive/40">
+            <CardContent className="flex flex-col gap-4 pt-6">
+              <p className="text-sm text-destructive">{errorMessage}</p>
+              <ProgressSteps steps={MINT_STEPS} currentIndex={currentIndex} failedIndex={failedIndex} />
+              <Button variant="outline" onClick={handleSubmit}>
+                <RefreshCw className="h-4 w-4" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <span className="text-sm text-muted-foreground">Total fees to create this token</span>
+          <span className="font-mono text-base font-semibold gradient-text">{totalFeeSol.toFixed(4)} SOL</span>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          ⚠️ Your wallet will be charged the creation amount shown above (
+          <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
+          ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
+          the network fee — the total amount charged will still match what&apos;s shown here.
+        </p>
+
+        <Button
+          size="lg"
+          variant="gradient"
+          className="w-full"
+          disabled={phase === "running" || !wallet.connected}
+          onClick={handleSubmit}
+        >
+          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating token…" : `Create token on ${NETWORK_LABEL}`}
+        </Button>
+        {errors.length > 0 && wallet.connected && (
+          <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
+        )}
+      </div>
+
+      <div className="space-y-6">
+        <TokenPreviewCard
+          name={form.name}
+          symbol={form.symbol}
+          description={form.description}
+          logoPreviewUrl={logoPreviewUrl}
+          supply={form.supply}
+          decimals={form.decimals}
+          website={form.website}
+          twitter={form.twitter}
+          telegram={form.telegram}
+          discord={form.discord}
+        />
+        <FeeEstimator authoritiesToRevokeCount={revokeCount} />
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: React.ReactNode;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>
+        {label} {required && <span className="text-destructive">*</span>}
+      </Label>
+      {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function Row({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <button onClick={onCopy} className="flex items-center gap-1.5 font-mono text-xs">
+        {value}
+        <Copy className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function validate(
+  form: FormState,
+  logoFile: File | null,
+  connected: boolean,
+  customCreatorEnabled: boolean
+): string[] {
+  const errors: string[] = [];
+  if (!form.name.trim()) errors.push("Token name is required");
+  if (form.name.length > 32) errors.push("Token name must be 32 characters or fewer");
+  if (!form.symbol.trim()) errors.push("Symbol is required");
+  if (form.symbol.length > 10) errors.push("Symbol must be 10 characters or fewer");
+  if (!form.description.trim()) errors.push("Description is required");
+  if (!logoFile) errors.push("Logo image is required");
+
+  const decimals = Number(form.decimals);
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 9) {
+    errors.push("Decimals must be a whole number between 0 and 9");
+  }
+
+  const supply = Number(form.supply);
+  if (!Number.isFinite(supply) || supply <= 0) {
+    errors.push("Initial supply must be greater than 0");
+  }
+
+  if (form.recipient.trim()) {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(form.recipient.trim());
+    } catch {
+      errors.push("Recipient wallet address is not a valid Solana address");
+    }
+  }
+
+  if (customCreatorEnabled) {
+    if (!form.creatorAddress.trim()) {
+      errors.push("Creator's address is required when Creator's Info is enabled");
+    } else {
+      try {
+        // eslint-disable-next-line no-new
+        new PublicKey(form.creatorAddress.trim());
+      } catch {
+        errors.push("Creator's address is not a valid Solana address");
+      }
+    }
+    if (!form.creatorName.trim()) {
+      errors.push("Creator's name is required when Creator's Info is enabled");
+    }
+  }
+
+  for (const [label, url] of [
+    ["Website", form.website],
+    ["Twitter", form.twitter],
+    ["Telegram", form.telegram],
+    ["Discord", form.discord],
+  ] as const) {
+    if (url && !/^https?:\/\//i.test(url)) {
+      errors.push(`${label} link must start with http:// or https://`);
+    }
+  }
+
+  return errors;
+          }
