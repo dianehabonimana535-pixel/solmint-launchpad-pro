@@ -67,7 +67,13 @@ const STEP_INDEX: Record<MintStep | "wallet" | "logo" | "metadata", number> = {
 
 type Phase = "idle" | "running" | "success" | "error";
 
-const MINT_TOAST_ID = "mint-flow";
+const FLOW_MESSAGES = [
+  "Confirming transaction…",
+  "Transaction received ✅",
+  "Creating token…",
+  "Token created ✅",
+  "Token sent to owner's wallet ✅",
+];
 
 export default function TokenCreatorForm() {
   const wallet = useWallet();
@@ -89,6 +95,7 @@ export default function TokenCreatorForm() {
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [flowStep, setFlowStep] = useState(0);
   const [failedIndex, setFailedIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<{ mintAddress: string; signature: string } | null>(null);
@@ -159,11 +166,10 @@ export default function TokenCreatorForm() {
     setFailedIndex(null);
     setErrorMessage(null);
     setCurrentIndex(0);
+    setFlowStep(0);
 
     const creatorAddress = customCreatorEnabled ? form.creatorAddress.trim() : "";
     const creatorName = customCreatorEnabled ? form.creatorName.trim() : "";
-
-    toast.loading("Confirming transaction…", { id: MINT_TOAST_ID });
 
     try {
       setCurrentIndex(STEP_INDEX.logo);
@@ -183,11 +189,11 @@ export default function TokenCreatorForm() {
         bannerFile
       );
       setCurrentIndex(STEP_INDEX.metadata);
-      toast.loading("Transaction received ✅", { id: MINT_TOAST_ID });
+      setFlowStep(1); // Transaction received
 
       const recipient = form.recipient.trim() || wallet.publicKey.toBase58();
 
-      toast.loading("Creating token…", { id: MINT_TOAST_ID });
+      setFlowStep(2); // Creating token…
 
       const mintResult = await createToken({
         wallet,
@@ -205,13 +211,14 @@ export default function TokenCreatorForm() {
         onStep: (step) => {
           setCurrentIndex(STEP_INDEX[step]);
           if (step === "confirming") {
-            toast.loading("Token created ✅", { id: MINT_TOAST_ID });
+            setFlowStep(3); // Token created
           }
         },
       });
 
       setResult(mintResult);
       setCurrentIndex(MINT_STEPS.length);
+      setFlowStep(4); // Token sent to owner's wallet
 
       addHistoryEntry({
         name: form.name.trim(),
@@ -222,15 +229,16 @@ export default function TokenCreatorForm() {
         revokedCount: revokeCount,
       });
 
-      toast.success("Token sent to owner's wallet ✅", { id: MINT_TOAST_ID, duration: 3000 });
-      setPhase("success");
+      // Let the user see the final "Token sent to owner's wallet" message
+      // for a moment before switching to the success screen.
+      setTimeout(() => setPhase("success"), 1200);
     } catch (err: any) {
       console.error(err);
       setFailedIndex(currentIndex);
       setPhase("error");
       const message = err?.message || "Something went wrong while creating your token";
       setErrorMessage(message);
-      toast.error(message, { id: MINT_TOAST_ID });
+      toast.error(message);
     }
   }
 
@@ -239,6 +247,7 @@ export default function TokenCreatorForm() {
     setLogoFile(null);
     setLogoPreviewUrl(null);
     setBannerFile(null);
+    setBannerPreviewUrl(null);
     setBannerPreviewUrl(null);
     setCustomCreatorEnabled(false);
     setPhase("idle");
@@ -321,7 +330,27 @@ export default function TokenCreatorForm() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+    <>
+      {phase === "running" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <p className="mb-4 text-base font-semibold text-gray-900">
+              {FLOW_MESSAGES[flowStep]}
+            </p>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-emerald-500 transition-all duration-500 ease-out"
+                style={{ width: `${((flowStep + 1) / FLOW_MESSAGES.length) * 100}%` }}
+              />
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Please keep this window open and approve any wallet prompts.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -440,7 +469,7 @@ export default function TokenCreatorForm() {
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
                       FREE
                     </span>
-                  </Label>
+                   </Label>
                   <CardDescription className="mt-1">
                     Change the information of the creator in the metadata. By default, it's
                     your connected wallet.
@@ -551,7 +580,8 @@ export default function TokenCreatorForm() {
         />
         <FeeEstimator authoritiesToRevokeCount={revokeCount} />
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -650,4 +680,4 @@ function validate(
   }
 
   return errors;
-}
+          } 
