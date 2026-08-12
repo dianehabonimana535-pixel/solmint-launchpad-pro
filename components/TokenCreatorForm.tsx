@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { PublicKey } from "@solana/web3.js";
-import { Upload, Copy, ExternalLink, RefreshCw, CheckCircle2, Droplets, X as XIcon } from "lucide-react";
+import { Upload, Copy, ExternalLink, RefreshCw, Droplets, X as XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import TokenPreviewCard from "@/components/TokenPreviewCard";
 import AuthorityOptions, { Authorities } from "@/components/AuthorityOptions";
-import ProgressSteps, { MINT_STEPS } from "@/components/ProgressSteps";
 import FeeEstimator from "@/components/FeeEstimator";
 import { uploadTokenAssets } from "@/lib/ipfs";
 import { createToken, MintStep } from "@/lib/mint";
@@ -53,26 +52,20 @@ const initialForm: FormState = {
   creatorName: "",
 };
 
-const STEP_INDEX: Record<MintStep | "wallet" | "logo" | "metadata", number> = {
-  wallet: 0,
-  logo: 1,
-  metadata: 2,
-  building: 3,
-  "creating-mint": 3,
-  "minting-supply": 4,
-  "revoking-authorities": 5,
-  confirming: 6,
-  complete: 6,
-};
-
 type Phase = "idle" | "running" | "success" | "error";
 
+// The labels shown in the custom progress popup. These map onto the real,
+// distinct async boundaries reported by lib/mint.ts's onStep callback
+// (signed -> sent -> confirmed -> complete). Nothing here is faked with
+// setTimeout: each transition is driven by a genuine event from the mint
+// flow. See handleSubmit's onStep handler below for the exact mapping.
 const FLOW_MESSAGES = [
-  "Confirming transaction…",
-  "Transaction received ✅",
-  "Creating token…",
-  "Token created ✅",
-  "Token sent to owner's wallet ✅",
+  "Confirming transaction",
+  "Transaction received",
+  "Creating token",
+  "Token created",
+  "Token sent to owner's wallet",
+  "Complete",
 ];
 
 export default function TokenCreatorForm() {
@@ -94,11 +87,16 @@ export default function TokenCreatorForm() {
   const [customCreatorEnabled, setCustomCreatorEnabled] = useState(false);
 
   const [phase, setPhase] = useState<Phase>("idle");
-  const [currentIndex, setCurrentIndex] = useState(-1);
-  const [flowStep, setFlowStep] = useState(0);
-  const [failedIndex, setFailedIndex] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<{ mintAddress: string; signature: string } | null>(null);
+
+  // Whether the custom progress popup is currently visible. This only ever
+  // becomes true once lib/mint.ts reports the "signed" step, i.e. once
+  // Phantom (or whichever wallet is connected) has actually returned a
+  // signature. It is never shown before that, and never shown at all if
+  // the user rejects the wallet prompt.
+  const [showModal, setShowModal] = useState(false);
+  const [flowStep, setFlowStep] = useState(0);
 
   const revokeCount =
     (authorities.revokeMint ? 1 : 0) +
@@ -152,6 +150,30 @@ export default function TokenCreatorForm() {
     setBannerPreviewUrl(URL.createObjectURL(file));
   }
 
+  function onMintStep(step: MintStep) {
+    // "building" and "awaiting-signature" happen before the wallet has
+    // returned anything â€” the custom popup stays hidden during these.
+    // The button already shows "Creating tokenâ€¦" as a disabled state, and
+    // the wallet's own extension shows its native approval popup here.
+    if (step === "signed") {
+      // Phantom (or the connected wallet) has just returned a valid
+      // signature. This is the exact, real moment to reveal our popup.
+      setShowModal(true);
+      setFlowStep(0); // "Confirming transaction"
+    } else if (step === "sent") {
+      // The signed transaction was successfully broadcast to the network.
+      // "Transaction received" and "Creating token" both become true at
+      // this point (the mint + supply + authority instructions are part
+      // of this same transaction now awaiting finalization).
+      setFlowStep(2);
+    } else if (step === "confirmed") {
+      // The transaction is finalized on-chain: the token now exists and
+      // the supply has been sent to the recipient wallet, atomically, in
+      // the same transaction.
+      setFlowStep(5);
+    }
+  }
+
   async function handleSubmit() {
     if (errors.length > 0) {
       toast.error(errors[0]);
@@ -163,16 +185,14 @@ export default function TokenCreatorForm() {
     }
 
     setPhase("running");
-    setFailedIndex(null);
     setErrorMessage(null);
-    setCurrentIndex(0);
+    setShowModal(false);
     setFlowStep(0);
 
     const creatorAddress = customCreatorEnabled ? form.creatorAddress.trim() : "";
     const creatorName = customCreatorEnabled ? form.creatorName.trim() : "";
 
     try {
-      setCurrentIndex(STEP_INDEX.logo);
       const { metadataUri } = await uploadTokenAssets(
         logoFile as File,
         {
@@ -188,12 +208,8 @@ export default function TokenCreatorForm() {
         },
         bannerFile
       );
-      setCurrentIndex(STEP_INDEX.metadata);
-      setFlowStep(1); // Transaction received
 
       const recipient = form.recipient.trim() || wallet.publicKey.toBase58();
-
-      setFlowStep(2); // Creating token…
 
       const mintResult = await createToken({
         wallet,
@@ -208,17 +224,10 @@ export default function TokenCreatorForm() {
         revokeFreeze: authorities.revokeFreeze,
         revokeUpdate: authorities.revokeUpdate,
         creatorAddress: creatorAddress || undefined,
-        onStep: (step) => {
-          setCurrentIndex(STEP_INDEX[step]);
-          if (step === "confirming") {
-            setFlowStep(3); // Token created
-          }
-        },
+        onStep: onMintStep,
       });
 
       setResult(mintResult);
-      setCurrentIndex(MINT_STEPS.length);
-      setFlowStep(4); // Token sent to owner's wallet
 
       addHistoryEntry({
         name: form.name.trim(),
@@ -229,14 +238,21 @@ export default function TokenCreatorForm() {
         revokedCount: revokeCount,
       });
 
-      // Let the user see the final "Token sent to owner's wallet" message
-      // for a moment before switching to the success screen.
-      setTimeout(() => setPhase("success"), 1200);
+      // Briefly hold on the finalized "Complete" state so the user actually
+      // sees it, then hand off to the success screen. This short pause is
+      // purely a UI transition after real completion â€” it does not fake
+      // any additional progress steps.
+      setTimeout(() => setPhase("success"), 900);
     } catch (err: any) {
       console.error(err);
-      setFailedIndex(currentIndex);
       setPhase("error");
-      const message = err?.message || "Something went wrong while creating your token";
+      setShowModal(false);
+      const rejected =
+        typeof err?.message === "string" &&
+        /reject|declin|cancel/i.test(err.message);
+      const message = rejected
+        ? "Transaction was cancelled in your wallet."
+        : err?.message || "Something went wrong while creating your token";
       setErrorMessage(message);
       toast.error(message);
     }
@@ -248,11 +264,10 @@ export default function TokenCreatorForm() {
     setLogoPreviewUrl(null);
     setBannerFile(null);
     setBannerPreviewUrl(null);
-    setBannerPreviewUrl(null);
     setCustomCreatorEnabled(false);
     setPhase("idle");
-    setCurrentIndex(-1);
-    setFailedIndex(null);
+    setShowModal(false);
+    setFlowStep(0);
     setErrorMessage(null);
     setResult(null);
   }
@@ -268,7 +283,7 @@ export default function TokenCreatorForm() {
         <Card>
           <CardContent className="flex flex-col items-center gap-4 pt-8 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-4xl">
-              🚀
+              ðŸš€
             </div>
             <h2 className="font-display text-3xl font-bold gradient-text">Congratulations!</h2>
             <p className="text-sm text-muted-foreground">
@@ -329,257 +344,275 @@ export default function TokenCreatorForm() {
     );
   }
 
+  const percent = Math.round((flowStep / (FLOW_MESSAGES.length - 1)) * 100);
+
   return (
     <>
-      {phase === "running" && (
+      {showModal && phase === "running" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <p className="mb-4 text-base font-semibold text-gray-900">
-              {FLOW_MESSAGES[flowStep]}
-            </p>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-base font-bold text-foreground">
+                {FLOW_MESSAGES[flowStep]}â€¦
+              </p>
+              <span className="font-mono text-base font-semibold text-accent">
+                {percent}%
+              </span>
+            </div>
+
+            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/60">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-500 to-emerald-500 transition-all duration-500 ease-out"
-                style={{ width: `${((flowStep + 1) / FLOW_MESSAGES.length) * 100}%` }}
+                className="h-full rounded-full animated-gradient transition-all duration-500 ease-out"
+                style={{ width: `${percent}%` }}
               />
             </div>
-            <p className="mt-3 text-xs text-gray-500">
-              Please keep this window open and approve any wallet prompts.
+
+            <div className="mt-4 space-y-1.5 text-sm">
+              {FLOW_MESSAGES.map((label, i) =>
+                i < flowStep ? (
+                  <p key={label} className="text-accent">
+                    {label} âœ“
+                  </p>
+                ) : null
+              )}
+            </div>
+
+            <p className="mt-4 text-xs text-muted-foreground">
+              Please keep this window open until the transaction is finalized.
             </p>
           </div>
         </div>
       )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Token details</CardTitle>
-            <CardDescription>The basics that will live permanently on-chain.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Token name" required>
-                <Input placeholder="e.g. Solar Doge" value={form.name} onChange={(e) => update("name", e.target.value)} maxLength={32} />
-              </Field>
-              <Field label="Symbol" required>
-                <Input placeholder="e.g. SDOGE" value={form.symbol} onChange={(e) => update("symbol", e.target.value.toUpperCase())} maxLength={10} />
-              </Field>
-            </div>
-
-            <Field label="Description" required>
-              <Textarea
-                placeholder="What is your token about?"
-                value={form.description}
-                onChange={(e) => update("description", e.target.value)}
-                maxLength={500}
-              />
-            </Field>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Decimals" required hint="9 is the Solana standard for meme coins">
-                <Input type="number" min={0} max={9} value={form.decimals} onChange={(e) => update("decimals", e.target.value)} />
-              </Field>
-              <Field label="Initial supply" required>
-                <Input type="number" min={1} value={form.supply} onChange={(e) => update("supply", e.target.value)} />
-              </Field>
-            </div>
-
-            <Field label="Logo" required>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-8 text-center transition-colors hover:border-primary/60"
-              >
-                {logoPreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoPreviewUrl} alt="Logo preview" className="h-16 w-16 rounded-lg object-cover" />
-                ) : (
-                  <Upload className="h-6 w-6 text-muted-foreground" />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {logoFile ? logoFile.name : "PNG or JPG, square, up to 5MB"}
-                </p>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Token details</CardTitle>
+              <CardDescription>The basics that will live permanently on-chain.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Token name" required>
+                  <Input placeholder="e.g. Solar Doge" value={form.name} onChange={(e) => update("name", e.target.value)} maxLength={32} />
+                </Field>
+                <Field label="Symbol" required>
+                  <Input placeholder="e.g. SDOGE" value={form.symbol} onChange={(e) => update("symbol", e.target.value.toUpperCase())} maxLength={10} />
+                </Field>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleFile(e.target.files?.[0] || null)}
-              />
-            </Field>
 
-            <Field
-              label={
-                <span className="flex items-center gap-2">
-                  Banner (Optional)
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
-                    FREE
-                  </span>
-                </span>
-              }
-              hint="Wide image shown on DEX Screener and similar sites, e.g. 1500×500px"
-            >
-              <div
-                onClick={() => bannerInputRef.current?.click()}
-                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-6 text-center transition-colors hover:border-primary/60"
-              >
-                {bannerPreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={bannerPreviewUrl} alt="Banner preview" className="h-16 w-full rounded-lg object-cover" />
-                ) : (
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {bannerFile ? bannerFile.name : "PNG or JPG, wide format, up to 5MB"}
-                </p>
-              </div>
-              <input
-                ref={bannerInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleBannerFile(e.target.files?.[0] || null)}
-              />
-            </Field>
-
-            <Field label="Recipient wallet" hint="Defaults to your connected wallet if left blank">
-              <Input
-                placeholder={wallet.publicKey?.toBase58() || "Connect wallet for default"}
-                value={form.recipient}
-                onChange={(e) => update("recipient", e.target.value)}
-              />
-            </Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="customCreator"
-                  checked={customCreatorEnabled}
-                  onCheckedChange={(v) => setCustomCreatorEnabled(Boolean(v))}
-                  className="mt-1"
+              <Field label="Description" required>
+                <Textarea
+                  placeholder="What is your token about?"
+                  value={form.description}
+                  onChange={(e) => update("description", e.target.value)}
+                  maxLength={500}
                 />
-                <div>
-                  <Label htmlFor="customCreator" className="flex items-center gap-2 text-base font-semibold">
-                    Creator's Info (Optional)
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Decimals" required hint="9 is the Solana standard for meme coins">
+                  <Input type="number" min={0} max={9} value={form.decimals} onChange={(e) => update("decimals", e.target.value)} />
+                </Field>
+                <Field label="Initial supply" required>
+                  <Input type="number" min={1} value={form.supply} onChange={(e) => update("supply", e.target.value)} />
+                </Field>
+              </div>
+
+              <Field label="Logo" required>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-8 text-center transition-colors hover:border-primary/60"
+                >
+                  {logoPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={logoPreviewUrl} alt="Logo preview" className="h-16 w-16 rounded-lg object-cover" />
+                  ) : (
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {logoFile ? logoFile.name : "PNG or JPG, square, up to 5MB"}
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleFile(e.target.files?.[0] || null)}
+                />
+              </Field>
+
+              <Field
+                label={
+                  <span className="flex items-center gap-2">
+                    Banner (Optional)
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
                       FREE
                     </span>
-                   </Label>
-                  <CardDescription className="mt-1">
-                    Change the information of the creator in the metadata. By default, it's
-                    your connected wallet.
-                  </CardDescription>
+                  </span>
+                }
+                hint="Wide image shown on DEX Screener and similar sites, e.g. 1500Ã—500px"
+              >
+                <div
+                  onClick={() => bannerInputRef.current?.click()}
+                  className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-secondary/20 px-4 py-6 text-center transition-colors hover:border-primary/60"
+                >
+                  {bannerPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={bannerPreviewUrl} alt="Banner preview" className="h-16 w-full rounded-lg object-cover" />
+                  ) : (
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {bannerFile ? bannerFile.name : "PNG or JPG, wide format, up to 5MB"}
+                  </p>
                 </div>
-              </div>
-            </div>
-          </CardHeader>
-          {customCreatorEnabled && (
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Field label="Creator's Address" required hint="Won't be marked verified — it hasn't signed this transaction">
-                <Input
-                  placeholder="Ex: 3stNIYCJd..."
-                  value={form.creatorAddress}
-                  onChange={(e) => update("creatorAddress", e.target.value)}
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleBannerFile(e.target.files?.[0] || null)}
                 />
               </Field>
-              <Field label="Creator's Name" required>
+
+              <Field label="Recipient wallet" hint="Defaults to your connected wallet if left blank">
                 <Input
-                  placeholder="Ex: John Doe"
-                  value={form.creatorName}
-                  onChange={(e) => update("creatorName", e.target.value)}
-                  maxLength={64}
+                  placeholder={wallet.publicKey?.toBase58() || "Connect wallet for default"}
+                  value={form.recipient}
+                  onChange={(e) => update("recipient", e.target.value)}
                 />
               </Field>
-            </CardContent>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Social links
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
-                FREE
-              </span>
-            </CardTitle>
-            <CardDescription>Optional — shown in your token metadata.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field label="Website"><Input placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} /></Field>
-            <Field label="Twitter / X"><Input placeholder="https://x.com/..." value={form.twitter} onChange={(e) => update("twitter", e.target.value)} /></Field>
-            <Field label="Telegram"><Input placeholder="https://t.me/..." value={form.telegram} onChange={(e) => update("telegram", e.target.value)} /></Field>
-            <Field label="Discord"><Input placeholder="https://discord.gg/..." value={form.discord} onChange={(e) => update("discord", e.target.value)} /></Field>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Token authorities</CardTitle>
-            <CardDescription>Choose what to permanently give up for holder trust.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AuthorityOptions value={authorities} onChange={setAuthorities} />
-          </CardContent>
-        </Card>
-
-        {phase === "error" && (
-          <Card className="border-destructive/40">
-            <CardContent className="flex flex-col gap-4 pt-6">
-              <p className="text-sm text-destructive">{errorMessage}</p>
-              <ProgressSteps steps={MINT_STEPS} currentIndex={currentIndex} failedIndex={failedIndex} />
-              <Button variant="outline" onClick={handleSubmit}>
-                <RefreshCw className="h-4 w-4" /> Retry
-              </Button>
             </CardContent>
           </Card>
-        )}
 
-        <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3">
-          <span className="text-sm text-muted-foreground">Total fees to create this token</span>
-          <span className="font-mono text-base font-semibold gradient-text">{totalFeeSol.toFixed(4)} SOL</span>
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="customCreator"
+                    checked={customCreatorEnabled}
+                    onCheckedChange={(v) => setCustomCreatorEnabled(Boolean(v))}
+                    className="mt-1"
+                  />
+                  <div>
+                    <Label htmlFor="customCreator" className="flex items-center gap-2 text-base font-semibold">
+                      Creator's Info (Optional)
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                        FREE
+                      </span>
+                    </Label>
+                    <CardDescription className="mt-1">
+                      Change the information of the creator in the metadata. By default, it's
+                      your connected wallet.
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            {customCreatorEnabled && (
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <Field label="Creator's Address" required hint="Won't be marked verified â€” it hasn't signed this transaction">
+                  <Input
+                    placeholder="Ex: 3stNIYCJd..."
+                    value={form.creatorAddress}
+                    onChange={(e) => update("creatorAddress", e.target.value)}
+                  />
+                </Field>
+                <Field label="Creator's Name" required>
+                  <Input
+                    placeholder="Ex: John Doe"
+                    value={form.creatorName}
+                    onChange={(e) => update("creatorName", e.target.value)}
+                    maxLength={64}
+                  />
+                </Field>
+              </CardContent>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Social links
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-medium text-emerald-400">
+                  FREE
+                </span>
+              </CardTitle>
+              <CardDescription>Optional â€” shown in your token metadata.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Website"><Input placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} /></Field>
+              <Field label="Twitter / X"><Input placeholder="https://x.com/..." value={form.twitter} onChange={(e) => update("twitter", e.target.value)} /></Field>
+              <Field label="Telegram"><Input placeholder="https://t.me/..." value={form.telegram} onChange={(e) => update("telegram", e.target.value)} /></Field>
+              <Field label="Discord"><Input placeholder="https://discord.gg/..." value={form.discord} onChange={(e) => update("discord", e.target.value)} /></Field>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Token authorities</CardTitle>
+              <CardDescription>Choose what to permanently give up for holder trust.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AuthorityOptions value={authorities} onChange={setAuthorities} />
+            </CardContent>
+          </Card>
+
+          {phase === "error" && (
+            <Card className="border-destructive/40">
+              <CardContent className="flex flex-col gap-4 pt-6">
+                <p className="text-sm text-destructive">{errorMessage}</p>
+                <Button variant="outline" onClick={handleSubmit}>
+                  <RefreshCw className="h-4 w-4" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3">
+            <span className="text-sm text-muted-foreground">Total fees to create this token</span>
+            <span className="font-mono text-base font-semibold gradient-text">{totalFeeSol.toFixed(4)} SOL</span>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            âš ï¸ Your wallet will be charged the creation amount shown above (
+            <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
+            ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
+            the network fee â€” the total amount charged will still match what&apos;s shown here.
+          </p>
+
+          <Button
+            size="lg"
+            variant="gradient"
+            className="w-full"
+            disabled={phase === "running" || !wallet.connected}
+            onClick={handleSubmit}
+          >
+            {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating tokenâ€¦" : `Create token on ${NETWORK_LABEL}`}
+          </Button>
+          {errors.length > 0 && wallet.connected && (
+            <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
+          )}
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          ⚠️ Your wallet will be charged the creation amount shown above (
-          <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
-          ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
-          the network fee — the total amount charged will still match what&apos;s shown here.
-        </p>
-
-        <Button
-          size="lg"
-          variant="gradient"
-          className="w-full"
-          disabled={phase === "running" || !wallet.connected}
-          onClick={handleSubmit}
-        >
-          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating token…" : `Create token on ${NETWORK_LABEL}`}
-        </Button>
-        {errors.length > 0 && wallet.connected && (
-          <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
-        )}
-      </div>
-
-      <div className="space-y-6">
-        <TokenPreviewCard
-          name={form.name}
-          symbol={form.symbol}
-          description={form.description}
-          logoPreviewUrl={logoPreviewUrl}
-          supply={form.supply}
-          decimals={form.decimals}
-          website={form.website}
-          twitter={form.twitter}
-          telegram={form.telegram}
-          discord={form.discord}
-        />
-        <FeeEstimator authoritiesToRevokeCount={revokeCount} />
-      </div>
+        <div className="space-y-6">
+          <TokenPreviewCard
+            name={form.name}
+            symbol={form.symbol}
+            description={form.description}
+            logoPreviewUrl={logoPreviewUrl}
+            supply={form.supply}
+            decimals={form.decimals}
+            website={form.website}
+            twitter={form.twitter}
+            telegram={form.telegram}
+            discord={form.discord}
+          />
+          <FeeEstimator authoritiesToRevokeCount={revokeCount} />
+        </div>
       </div>
     </>
   );
@@ -603,18 +636,6 @@ function Field({
       </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function Row({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <button onClick={onCopy} className="flex items-center gap-1.5 font-mono text-xs">
-        {value}
-        <Copy className="h-3 w-3" />
-      </button>
     </div>
   );
 }
@@ -680,4 +701,4 @@ function validate(
   }
 
   return errors;
-          } 
+}
