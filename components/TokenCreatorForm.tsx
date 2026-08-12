@@ -366,7 +366,7 @@ export default function TokenCreatorForm() {
                   </span>
                 </span>
               }
-              hint="Wide image shown on DEX Screener and similar sites, e.g. 1500×500px"
+              hint="Wide image shown on DEX Screener and similar sites, e.g. 1500Ã—500px"
             >
               <div
                 onClick={() => bannerInputRef.current?.click()}
@@ -428,7 +428,7 @@ export default function TokenCreatorForm() {
           </CardHeader>
           {customCreatorEnabled && (
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Field label="Creator's Address" required hint="Won't be marked verified — it hasn't signed this transaction">
+              <Field label="Creator's Address" required hint="Won't be marked verified â€” it hasn't signed this transaction">
                 <Input
                   placeholder="Ex: 3stNIYCJd..."
                   value={form.creatorAddress}
@@ -455,7 +455,7 @@ export default function TokenCreatorForm() {
                 FREE
               </span>
             </CardTitle>
-            <CardDescription>Optional — shown in your token metadata.</CardDescription>
+            <CardDescription>Optional â€” shown in your token metadata.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <Field label="Website"><Input placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} /></Field>
@@ -478,8 +478,8 @@ export default function TokenCreatorForm() {
         {phase === "running" && (
           <Card>
             <CardHeader>
-              <CardTitle>Creating your token…</CardTitle>
-              <CardDescription>Approve each transaction in your wallet when prompted.</CardDescription>
+              <CardTitle>Creating your tokenâ€¦</CardTitle>
+              <CardDescription>Approve the transaction in your wallet when prompted.</CardDescription>
             </CardHeader>
             <CardContent>
               <ProgressSteps steps={MINT_STEPS} currentIndex={currentIndex} failedIndex={failedIndex} />
@@ -505,10 +505,10 @@ export default function TokenCreatorForm() {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          ⚠️ Your wallet will be charged the creation amount shown above (
+          âš ï¸ Your wallet will be charged the creation amount shown above (
           <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
           ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
-          the network fee — the total amount charged will still match what&apos;s shown here.
+          the network fee â€” the total amount charged will still match what&apos;s shown here.
         </p>
 
         <Button
@@ -518,7 +518,7 @@ export default function TokenCreatorForm() {
           disabled={phase === "running" || !wallet.connected}
           onClick={handleSubmit}
         >
-          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating token…" : `Create token on ${NETWORK_LABEL}`}
+          {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating tokenâ€¦" : `Create token on ${NETWORK_LABEL}`}
         </Button>
         {errors.length > 0 && wallet.connected && (
           <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
