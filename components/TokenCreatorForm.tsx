@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
 import { PublicKey } from "@solana/web3.js";
-import { Upload, Copy, ExternalLink, RefreshCw, Droplets, X as XIcon } from "lucide-react";
+import { Upload, Copy, ExternalLink, RefreshCw, Droplets, X as XIcon, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +97,7 @@ export default function TokenCreatorForm() {
   // the user rejects the wallet prompt.
   const [showModal, setShowModal] = useState(false);
   const [flowStep, setFlowStep] = useState(0);
+  const flowStepRef = useRef(0);
 
   const revokeCount =
     (authorities.revokeMint ? 1 : 0) +
@@ -150,27 +151,46 @@ export default function TokenCreatorForm() {
     setBannerPreviewUrl(URL.createObjectURL(file));
   }
 
+  // Steps forward through FLOW_MESSAGES one at a time (not jumping straight
+  // to the target), so the user actually sees each message appear in
+  // sequence. This only ever runs after a real event has already happened
+  // (signed / sent / confirmed) -- it paces how those already-true facts
+  // are revealed, it does not simulate work that hasn't happened yet.
+  function animateFlowTo(target: number, onDone?: () => void) {
+    const tick = () => {
+      if (flowStepRef.current >= target) {
+        onDone?.();
+        return;
+      }
+      flowStepRef.current += 1;
+      setFlowStep(flowStepRef.current);
+      setTimeout(tick, 550);
+    };
+    tick();
+  }
+
   function onMintStep(step: MintStep) {
     // "building" and "awaiting-signature" happen before the wallet has
-    // returned anything â€” the custom popup stays hidden during these.
-    // The button already shows "Creating tokenâ€¦" as a disabled state, and
+    // returned anything - the custom popup stays hidden during these.
+    // The button shows a spinner + "Waiting for wallet approval..." and
     // the wallet's own extension shows its native approval popup here.
     if (step === "signed") {
       // Phantom (or the connected wallet) has just returned a valid
       // signature. This is the exact, real moment to reveal our popup.
-      setShowModal(true);
+      flowStepRef.current = 0;
       setFlowStep(0); // "Confirming transaction"
+      setShowModal(true);
     } else if (step === "sent") {
       // The signed transaction was successfully broadcast to the network.
-      // "Transaction received" and "Creating token" both become true at
-      // this point (the mint + supply + authority instructions are part
-      // of this same transaction now awaiting finalization).
-      setFlowStep(2);
+      animateFlowTo(2); // reveals "Transaction received" then "Creating token"
     } else if (step === "confirmed") {
       // The transaction is finalized on-chain: the token now exists and
       // the supply has been sent to the recipient wallet, atomically, in
-      // the same transaction.
-      setFlowStep(5);
+      // the same transaction. Reveal the remaining messages in sequence,
+      // then hand off to the success screen once "Complete" has been shown.
+      animateFlowTo(5, () => {
+        setTimeout(() => setPhase("success"), 700);
+      });
     }
   }
 
@@ -238,11 +258,9 @@ export default function TokenCreatorForm() {
         revokedCount: revokeCount,
       });
 
-      // Briefly hold on the finalized "Complete" state so the user actually
-      // sees it, then hand off to the success screen. This short pause is
-      // purely a UI transition after real completion â€” it does not fake
-      // any additional progress steps.
-      setTimeout(() => setPhase("success"), 900);
+      // The switch to the success screen is now triggered from inside
+      // onMintStep, once the "Complete" message has actually been shown
+      // to the user (see animateFlowTo's onDone callback above).
     } catch (err: any) {
       console.error(err);
       setPhase("error");
@@ -282,8 +300,8 @@ export default function TokenCreatorForm() {
       <div className="mx-auto max-w-xl">
         <Card>
           <CardContent className="flex flex-col items-center gap-4 pt-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-4xl">
-              ðŸš€
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-2xl font-bold text-accent">
+              OK
             </div>
             <h2 className="font-display text-3xl font-bold gradient-text">Congratulations!</h2>
             <p className="text-sm text-muted-foreground">
@@ -353,7 +371,7 @@ export default function TokenCreatorForm() {
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-base font-bold text-foreground">
-                {FLOW_MESSAGES[flowStep]}â€¦
+                {FLOW_MESSAGES[flowStep]}...
               </p>
               <span className="font-mono text-base font-semibold text-accent">
                 {percent}%
@@ -371,7 +389,7 @@ export default function TokenCreatorForm() {
               {FLOW_MESSAGES.map((label, i) =>
                 i < flowStep ? (
                   <p key={label} className="text-accent">
-                    {label} âœ“
+                    {label} - done
                   </p>
                 ) : null
               )}
@@ -452,7 +470,7 @@ export default function TokenCreatorForm() {
                     </span>
                   </span>
                 }
-                hint="Wide image shown on DEX Screener and similar sites, e.g. 1500Ã—500px"
+                hint="Wide image shown on DEX Screener and similar sites, e.g. 1500x500px"
               >
                 <div
                   onClick={() => bannerInputRef.current?.click()}
@@ -514,7 +532,7 @@ export default function TokenCreatorForm() {
             </CardHeader>
             {customCreatorEnabled && (
               <CardContent className="grid gap-4 sm:grid-cols-2">
-                <Field label="Creator's Address" required hint="Won't be marked verified â€” it hasn't signed this transaction">
+                <Field label="Creator's Address" required hint="Won't be marked verified - it hasn't signed this transaction">
                   <Input
                     placeholder="Ex: 3stNIYCJd..."
                     value={form.creatorAddress}
@@ -541,7 +559,7 @@ export default function TokenCreatorForm() {
                   FREE
                 </span>
               </CardTitle>
-              <CardDescription>Optional â€” shown in your token metadata.</CardDescription>
+              <CardDescription>Optional - shown in your token metadata.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Field label="Website"><Input placeholder="https://..." value={form.website} onChange={(e) => update("website", e.target.value)} /></Field>
@@ -578,10 +596,10 @@ export default function TokenCreatorForm() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            âš ï¸ Your wallet will be charged the creation amount shown above (
+            Note: Your wallet will be charged the creation amount shown above (
             <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
             ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
-            the network fee â€” the total amount charged will still match what&apos;s shown here.
+            the network fee - the total amount charged will still match what&apos;s shown here.
           </p>
 
           <Button
@@ -591,7 +609,14 @@ export default function TokenCreatorForm() {
             disabled={phase === "running" || !wallet.connected}
             onClick={handleSubmit}
           >
-            {!wallet.connected ? "Connect wallet to continue" : phase === "running" ? "Creating tokenâ€¦" : `Create token on ${NETWORK_LABEL}`}
+            {phase === "running" && <Loader2 className="h-4 w-4 animate-spin" />}
+            {!wallet.connected
+              ? "Connect wallet to continue"
+              : phase !== "running"
+              ? `Create token on ${NETWORK_LABEL}`
+              : showModal
+              ? "Creating token..."
+              : "Waiting for wallet approval..."}
           </Button>
           {errors.length > 0 && wallet.connected && (
             <p className="text-center text-xs text-muted-foreground">{errors[0]}</p>
