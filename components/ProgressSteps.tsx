@@ -11,13 +11,13 @@ export interface Step {
 }
 
 export const MINT_STEPS: Step[] = [
-  { key: "wallet", label: "Connexion du portefeuille" },
-  { key: "logo", label: "Envoi du logo" },
-  { key: "metadata", label: "Envoi des mÃ©tadonnÃ©es" },
-  { key: "mint", label: "CrÃ©ation du mint" },
-  { key: "supply", label: "Frappe de la supply" },
-  { key: "authorities", label: "RÃ©vocation des autoritÃ©s" },
-  { key: "complete", label: "TerminÃ©" },
+  { key: "wallet", label: "Connect Wallet" },
+  { key: "logo", label: "Upload Logo" },
+  { key: "metadata", label: "Upload Metadata" },
+  { key: "mint", label: "Create Mint" },
+  { key: "supply", label: "Mint Supply" },
+  { key: "authorities", label: "Revoke Authorities" },
+  { key: "complete", label: "Complete" },
 ];
 
 /**
@@ -84,7 +84,7 @@ export default function ProgressSteps({
       <div>
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-sm font-medium text-muted-foreground">
-            {isAllDone ? "TerminÃ©" : isFailed ? "Ã‰chec" : "Progression"}
+            {isAllDone ? "Terminé" : isFailed ? "Échec" : "Progression"}
           </span>
           <span
             className={cn(
@@ -118,7 +118,7 @@ export default function ProgressSteps({
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent bg-accent text-accent-foreground">
               <Check className="h-4 w-4" />
             </div>
-            <p className="text-sm font-medium text-foreground">Toutes les Ã©tapes sont terminÃ©es</p>
+            <p className="text-sm font-medium text-foreground">Toutes les étapes sont terminées</p>
           </motion.div>
         ) : shownStep ? (
           <motion.div
@@ -157,8 +157,8 @@ export default function ProgressSteps({
             <div>
               <p className="text-sm font-medium text-foreground">{shownStep.label}</p>
               <p className="text-xs text-muted-foreground">
-                Ã‰tape {Math.min(displayIndex, total - 1) + 1} sur {total}
-                {flashDone && !isFailed ? " â€” terminÃ©e" : ""}
+                Étape {Math.min(displayIndex, total - 1) + 1} sur {total}
+                {flashDone && !isFailed ? " — terminée" : ""}
               </p>
             </div>
           </motion.div>
