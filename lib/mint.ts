@@ -43,12 +43,18 @@ export interface CreateTokenParams {
   onStep?: (step: MintStep) => void;
 }
 
+// These reflect the real, distinct asynchronous boundaries of the single
+// on-chain transaction: building it, waiting on the wallet to sign it,
+// having obtained the signature, broadcasting it, and confirming it.
+// There is only one transaction (mint + supply + authority revocations +
+// fee transfer are all bundled together), so these are the only points
+// where we can honestly report progress -- nothing here is simulated.
 export type MintStep =
   | "building"
-  | "creating-mint"
-  | "minting-supply"
-  | "revoking-authorities"
-  | "confirming"
+  | "awaiting-signature"
+  | "signed"
+  | "sent"
+  | "confirmed"
   | "complete";
 
 export interface CreateTokenResult {
@@ -162,7 +168,7 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     );
   }
 
-  // Un seul transfert de frais, agrégeant création + toutes les révocations demandées.
+  // Un seul transfert de frais, agregeant creation + toutes les revocations demandees.
   const totalFeeSol =
     PLATFORM_CREATION_FEE_SOL + PLATFORM_REVOKE_FEE_SOL * revokeCount;
   builder = builder.add(
@@ -173,15 +179,36 @@ export async function createToken(params: CreateTokenParams): Promise<CreateToke
     })
   );
 
-  onStep?.("creating-mint");
-  onStep?.("minting-supply");
-  if (revokeCount > 0) onStep?.("revoking-authorities");
+  // Step 1: ask the wallet (Phantom, etc.) to sign. This is the ONLY moment
+  // the wallet's own popup appears. Our own custom progress popup must not
+  // be shown before this call resolves.
+  onStep?.("awaiting-signature");
+  const signedTransaction = await builder.buildAndSign(umi);
 
-  const { signature } = await builder.sendAndConfirm(umi, {
-    confirm: { commitment: "finalized" },
+  // The wallet has returned a valid signature. From this point on it is
+  // safe to show our own progress popup.
+  onStep?.("signed");
+
+  // Step 2: broadcast the signed transaction to the network.
+  const signature = await umi.rpc.sendTransaction(signedTransaction, {
+    skipPreflight: false,
+  });
+  onStep?.("sent");
+
+  // Step 3: wait for the network to finalize it.
+  const latestBlockhash = await umi.rpc.getLatestBlockhash();
+  const confirmResult = await umi.rpc.confirmTransaction(signature, {
+    strategy: { type: "blockhash", ...latestBlockhash },
+    commitment: "finalized",
   });
 
-  onStep?.("confirming");
+  if (confirmResult.value.err) {
+    throw new Error(
+      "Transaction failed to confirm on-chain. Check Solscan with the signature above for details."
+    );
+  }
+
+  onStep?.("confirmed");
   onStep?.("complete");
 
   return { mintAddress: mintSigner.publicKey.toString(), signature: bs58EncodeSignature(signature) };
