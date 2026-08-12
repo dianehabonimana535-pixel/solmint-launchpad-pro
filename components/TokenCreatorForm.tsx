@@ -67,6 +67,8 @@ const STEP_INDEX: Record<MintStep | "wallet" | "logo" | "metadata", number> = {
 
 type Phase = "idle" | "running" | "success" | "error";
 
+const MINT_TOAST_ID = "mint-flow";
+
 export default function TokenCreatorForm() {
   const wallet = useWallet();
   const { connection } = useConnection();
@@ -161,6 +163,8 @@ export default function TokenCreatorForm() {
     const creatorAddress = customCreatorEnabled ? form.creatorAddress.trim() : "";
     const creatorName = customCreatorEnabled ? form.creatorName.trim() : "";
 
+    toast.loading("Confirming transaction…", { id: MINT_TOAST_ID });
+
     try {
       setCurrentIndex(STEP_INDEX.logo);
       const { metadataUri } = await uploadTokenAssets(
@@ -179,8 +183,11 @@ export default function TokenCreatorForm() {
         bannerFile
       );
       setCurrentIndex(STEP_INDEX.metadata);
+      toast.loading("Transaction received ✅", { id: MINT_TOAST_ID });
 
       const recipient = form.recipient.trim() || wallet.publicKey.toBase58();
+
+      toast.loading("Creating token…", { id: MINT_TOAST_ID });
 
       const mintResult = await createToken({
         wallet,
@@ -195,11 +202,15 @@ export default function TokenCreatorForm() {
         revokeFreeze: authorities.revokeFreeze,
         revokeUpdate: authorities.revokeUpdate,
         creatorAddress: creatorAddress || undefined,
-        onStep: (step) => setCurrentIndex(STEP_INDEX[step]),
+        onStep: (step) => {
+          setCurrentIndex(STEP_INDEX[step]);
+          if (step === "confirming") {
+            toast.loading("Token created ✅", { id: MINT_TOAST_ID });
+          }
+        },
       });
 
       setResult(mintResult);
-      setPhase("success");
       setCurrentIndex(MINT_STEPS.length);
 
       addHistoryEntry({
@@ -211,14 +222,15 @@ export default function TokenCreatorForm() {
         revokedCount: revokeCount,
       });
 
-      toast.success(`Token created on Solana ${NETWORK_LABEL}!`);
+      toast.success("Token sent to owner's wallet ✅", { id: MINT_TOAST_ID, duration: 3000 });
+      setPhase("success");
     } catch (err: any) {
       console.error(err);
       setFailedIndex(currentIndex);
       setPhase("error");
       const message = err?.message || "Something went wrong while creating your token";
       setErrorMessage(message);
-      toast.error(message);
+      toast.error(message, { id: MINT_TOAST_ID });
     }
   }
 
@@ -485,18 +497,6 @@ export default function TokenCreatorForm() {
             <AuthorityOptions value={authorities} onChange={setAuthorities} />
           </CardContent>
         </Card>
-
-        {phase === "running" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Creating your token…</CardTitle>
-              <CardDescription>Approve each transaction in your wallet when prompted.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProgressSteps steps={MINT_STEPS} currentIndex={currentIndex} failedIndex={failedIndex} />
-            </CardContent>
-          </Card>
-        )}
 
         {phase === "error" && (
           <Card className="border-destructive/40">
