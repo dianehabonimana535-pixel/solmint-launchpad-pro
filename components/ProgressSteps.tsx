@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export interface Step {
@@ -11,159 +8,65 @@ export interface Step {
 }
 
 export const MINT_STEPS: Step[] = [
-  { key: "wallet", label: "Connect Wallet" },
-  { key: "logo", label: "Upload Logo" },
-  { key: "metadata", label: "Upload Metadata" },
-  { key: "mint", label: "Create Mint" },
-  { key: "supply", label: "Mint Supply" },
-  { key: "authorities", label: "Revoke Authorities" },
-  { key: "complete", label: "Complete" },
+  { key: "wallet", label: "Confirming transaction…" },
+  { key: "logo", label: "Uploading logo…" },
+  { key: "metadata", label: "Uploading metadata…" },
+  { key: "mint", label: "Creating token…" },
+  { key: "supply", label: "Minting supply…" },
+  { key: "authorities", label: "Revoking authorities…" },
+  { key: "complete", label: "Token created — sent to your wallet ✅" },
 ];
 
-/**
- * Shows the mint flow's progress one step at a time (instead of the full
- * checklist): a percentage/progress bar up top, and a single card below for
- * whichever step is relevant right now. When a step finishes it flashes a
- * checkmark + the updated percentage for a beat, then hands off to the next
- * step's card.
- */
 export default function ProgressSteps({
   steps,
   currentIndex,
   failedIndex,
 }: {
   steps: Step[];
-  currentIndex: number; // index of the step currently in progress, -1 if not started
+  currentIndex: number;
   failedIndex?: number | null;
 }) {
   const total = steps.length;
+  const isFailed = typeof failedIndex === "number" && failedIndex >= 0;
+  const clampedIndex = Math.max(0, Math.min(currentIndex, total));
+  const percent = Math.round((clampedIndex / total) * 100);
 
-  // The step actually shown on screen. Kept separate from `currentIndex` so
-  // we can hold on a "done" checkmark briefly before advancing.
-  const [displayIndex, setDisplayIndex] = useState(Math.max(currentIndex, 0));
-  const [flashDone, setFlashDone] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (failedIndex != null) {
-      setDisplayIndex(failedIndex);
-      setFlashDone(false);
-      return;
-    }
-
-    if (currentIndex > displayIndex) {
-      setFlashDone(true);
-      timeoutRef.current = setTimeout(() => {
-        setDisplayIndex(currentIndex);
-        setFlashDone(false);
-      }, 550);
-    } else if (currentIndex < displayIndex) {
-      // Handles retry / reset: jump straight back without a flash.
-      setDisplayIndex(Math.max(currentIndex, 0));
-      setFlashDone(false);
-    }
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, failedIndex]);
-
-  const isFailed = failedIndex != null;
-  const isAllDone = !isFailed && currentIndex >= total;
-
-  const completedCount = flashDone ? displayIndex + 1 : displayIndex;
-  const percent = isAllDone
-    ? 100
-    : Math.round((Math.max(0, Math.min(completedCount, total)) / total) * 100);
-
-  const shownStep = isFailed ? steps[failedIndex] : isAllDone ? null : steps[Math.min(displayIndex, total - 1)];
+  const currentLabel = isFailed
+    ? steps[failedIndex as number]?.label
+    : currentIndex >= total
+    ? "Complete ✅"
+    : steps[Math.max(0, currentIndex)]?.label;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-sm font-medium text-muted-foreground">
-            {isAllDone ? "Terminé" : isFailed ? "Échec" : "Progression"}
-          </span>
-          <span
-            className={cn(
-              "text-2xl font-bold tabular-nums",
-              isFailed ? "text-destructive" : "text-foreground"
-            )}
-          >
-            {percent}%
-          </span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-border">
-          <motion.div
-            className={cn("h-full rounded-full", isFailed ? "bg-destructive" : "bg-accent")}
-            initial={false}
-            animate={{ width: `${percent}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          />
-        </div>
+    <div className="w-full">
+      <div className="mb-2 flex items-center justify-between">
+        <p
+          className={cn(
+            "text-sm font-medium",
+            isFailed ? "text-destructive" : "text-foreground"
+          )}
+        >
+          {currentLabel}
+        </p>
+        <span
+          className={cn(
+            "font-mono text-sm font-semibold",
+            isFailed ? "text-destructive" : "text-accent"
+          )}
+        >
+          {percent}%
+        </span>
       </div>
 
-      <AnimatePresence mode="wait">
-        {isAllDone ? (
-          <motion.div
-            key="all-done"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="flex items-center gap-3 rounded-lg border border-accent bg-accent/10 px-4 py-3"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent bg-accent text-accent-foreground">
-              <Check className="h-4 w-4" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Toutes les étapes sont terminées</p>
-          </motion.div>
-        ) : shownStep ? (
-          <motion.div
-            key={`${shownStep.key}-${flashDone ? "done" : "active"}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className={cn(
-              "flex items-center gap-3 rounded-lg border px-4 py-3",
-              isFailed
-                ? "border-destructive bg-destructive/10"
-                : flashDone
-                ? "border-accent bg-accent/10"
-                : "border-border bg-muted/30"
-            )}
-          >
-            <div
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                isFailed
-                  ? "border-destructive bg-destructive/20 text-destructive"
-                  : flashDone
-                  ? "border-accent bg-accent text-accent-foreground"
-                  : "border-primary bg-primary/20 text-primary"
-              )}
-            >
-              {isFailed ? (
-                <X className="h-4 w-4" />
-              ) : flashDone ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{shownStep.label}</p>
-              <p className="text-xs text-muted-foreground">
-                Étape {Math.min(displayIndex, total - 1) + 1} sur {total}
-                {flashDone && !isFailed ? " — terminée" : ""}
-              </p>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/60">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500 ease-out",
+            isFailed ? "bg-destructive" : "animated-gradient"
+          )}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
     </div>
   );
 }
