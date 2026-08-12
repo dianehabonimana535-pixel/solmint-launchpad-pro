@@ -246,18 +246,29 @@ export default function TokenCreatorForm() {
       <div className="mx-auto max-w-xl">
         <Card>
           <CardContent className="flex flex-col items-center gap-4 pt-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20">
-              <CheckCircle2 className="h-9 w-9 text-accent" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-4xl">
+              🚀
             </div>
-            <h2 className="font-display text-2xl font-bold">Your token is live</h2>
+            <h2 className="font-display text-3xl font-bold gradient-text">Congratulations!</h2>
             <p className="text-sm text-muted-foreground">
-              {form.name} (${form.symbol}) has been minted on Solana {NETWORK_LABEL}.
+              {form.name} (${form.symbol}) has been successfully created and deployed
+              on the Solana blockchain.
             </p>
 
-            <div className="w-full space-y-2 rounded-xl border border-border bg-secondary/30 p-4 text-left">
-              <Row label="Token address" value={shortenAddress(result.mintAddress, 6)} onCopy={() => copy(result.mintAddress, "Token address")} />
-              <Row label="Transaction" value={shortenAddress(result.signature, 6)} onCopy={() => copy(result.signature, "Signature")} />
+            <div className="w-full space-y-1.5 rounded-xl border border-border bg-secondary/30 p-4 text-left">
+              <span className="text-xs text-muted-foreground">Token Address</span>
+              <div className="flex items-center justify-between gap-2 font-mono text-sm text-accent">
+                <span className="truncate">{result.mintAddress}</span>
+              </div>
             </div>
+
+            <Button
+              variant="gradient"
+              className="w-full"
+              onClick={() => copy(result.mintAddress, "Token address")}
+            >
+              <Copy className="h-4 w-4" /> Copy Token Address
+            </Button>
 
             <div className="flex w-full flex-col gap-2 sm:flex-row">
               <Button asChild variant="outline" className="flex-1">
@@ -639,4 +650,4 @@ function validate(
   }
 
   return errors;
-          }
+}
