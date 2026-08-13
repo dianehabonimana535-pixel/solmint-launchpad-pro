@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import { PublicKey } from "@solana/web3.js";
 import { Upload, Copy, ExternalLink, RefreshCw, Droplets, X as XIcon, Loader2 } from "lucide-react";
 
@@ -61,11 +62,11 @@ type Phase = "idle" | "running" | "success" | "error";
 // flow. See handleSubmit's onStep handler below for the exact mapping.
 const FLOW_MESSAGES = [
   "Confirming transaction",
-  "Transaction received",
+  "Transaction received \u2705",
   "Creating token",
-  "Token created",
-  "Token sent to owner's wallet",
-  "Complete",
+  "Token created \u2705",
+  "Token sent to owner's wallet \u2705",
+  "Complete \u2705",
 ];
 
 export default function TokenCreatorForm() {
@@ -257,7 +258,6 @@ export default function TokenCreatorForm() {
         createdAt: new Date().toISOString(),
         revokedCount: revokeCount,
       });
-
       // The switch to the success screen is now triggered from inside
       // onMintStep, once the "Complete" message has actually been shown
       // to the user (see animateFlowTo's onDone callback above).
@@ -297,11 +297,13 @@ export default function TokenCreatorForm() {
 
   if (phase === "success" && result) {
     return (
-      <div className="mx-auto max-w-xl">
+      <>
+        <CelebrationPetals />
+        <div className="mx-auto max-w-xl">
         <Card>
           <CardContent className="flex flex-col items-center gap-4 pt-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-2xl font-bold text-accent">
-              OK
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-4xl">
+              {"\u{1F680}"}
             </div>
             <h2 className="font-display text-3xl font-bold gradient-text">Congratulations!</h2>
             <p className="text-sm text-muted-foreground">
@@ -358,11 +360,14 @@ export default function TokenCreatorForm() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </>
     );
   }
 
   const percent = Math.round((flowStep / (FLOW_MESSAGES.length - 1)) * 100);
+  const currentLabel = FLOW_MESSAGES[flowStep];
+  const headerLabel = currentLabel.includes("\u2705") ? currentLabel : `${currentLabel}...`;
 
   return (
     <>
@@ -370,9 +375,7 @@ export default function TokenCreatorForm() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-base font-bold text-foreground">
-                {FLOW_MESSAGES[flowStep]}...
-              </p>
+              <p className="text-base font-bold text-foreground">{headerLabel}</p>
               <span className="font-mono text-base font-semibold text-accent">
                 {percent}%
               </span>
@@ -389,7 +392,7 @@ export default function TokenCreatorForm() {
               {FLOW_MESSAGES.map((label, i) =>
                 i < flowStep ? (
                   <p key={label} className="text-accent">
-                    {label} - done
+                    {label.includes("\u2705") ? label : `${label} \u2705`}
                   </p>
                 ) : null
               )}
@@ -494,7 +497,6 @@ export default function TokenCreatorForm() {
                   onChange={(e) => handleBannerFile(e.target.files?.[0] || null)}
                 />
               </Field>
-
               <Field label="Recipient wallet" hint="Defaults to your connected wallet if left blank">
                 <Input
                   placeholder={wallet.publicKey?.toBase58() || "Connect wallet for default"}
@@ -596,7 +598,7 @@ export default function TokenCreatorForm() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Note: Your wallet will be charged the creation amount shown above (
+            {"\u26A0\uFE0F"} Your wallet will be charged the creation amount shown above (
             <span className="font-mono font-semibold text-red-500">-{totalFeeSol.toFixed(4)} SOL</span>
             ), plus Solana network transaction fees. Your wallet&apos;s confirmation popup may only display
             the network fee - the total amount charged will still match what&apos;s shown here.
@@ -640,6 +642,37 @@ export default function TokenCreatorForm() {
         </div>
       </div>
     </>
+  );
+}
+
+function CelebrationPetals() {
+  const petals = useMemo(() => {
+    const emojis = ["\u{1F338}", "\u{1F389}", "\u2728", "\u{1F33A}", "\u{1F38A}"];
+    return Array.from({ length: 28 }).map((_, i) => ({
+      id: i,
+      emoji: emojis[i % emojis.length],
+      left: Math.random() * 100,
+      delay: Math.random() * 1.2,
+      duration: 3 + Math.random() * 2,
+      size: 16 + Math.random() * 14,
+      rotate: Math.random() * 360 - 180,
+    }));
+  }, []);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+      {petals.map((p) => (
+        <motion.span
+          key={p.id}
+          initial={{ y: "-10vh", opacity: 0, rotate: 0 }}
+          animate={{ y: "110vh", opacity: [0, 1, 1, 0], rotate: p.rotate }}
+          transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
+          style={{ position: "absolute", left: `${p.left}%`, fontSize: p.size }}
+        >
+          {p.emoji}
+        </motion.span>
+      ))}
+    </div>
   );
 }
 
@@ -726,4 +759,4 @@ function validate(
   }
 
   return errors;
-}
+                                            }
